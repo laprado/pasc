@@ -20,5 +20,8 @@ lazres `
   .\docs\buildps1.txt `
   .\docs\customcss.txt `
   .\docs\introduction.txt `
-  .\docs\quickstart.txt
+  .\docs\quickstart.txt `
+  .\workspace\pascjson.txt `
+  .\workspace\packagelpk.txt `
+  .\workspace\packageunitpas.txt
 Set-Location $StartDir

@@ -85,6 +85,7 @@ uses
   SysUtils,
   StrUtils,
   Command.Colors,
+  Utils.Boss,
   Utils.Shell,
   Utils.Resources,
   Utils.IO,
@@ -163,8 +164,9 @@ end;
 
 function InitializeBoss(ABuilder: ICommandBuilder; const AProjectDir: string): string;
 var
-  LOutput: string;
+  LOutput, LDisplay: string;
   LExitCode: Integer = 0;
+  LNoiseFound: Boolean = False;
 begin
   SetCurrentDir(AProjectDir);
   OutputInfo(ABuilder, 'boss', 'Initializing boss dependency manager');
@@ -173,9 +175,23 @@ begin
   {$ELSE}
   LOutput := ShellCommand('boss', ['init', '--quiet'], LExitCode);
   {$ENDIF}
+
+  // boss output has cursor control sequences and, outside Windows, errors from its
+  // Delphi-only internal tools; --verbose shows it as is
+  if ABuilder.CheckOption('verbose') then
+    LDisplay := LOutput
+  else
+  begin
+    LDisplay := FilterBossOutput(LOutput, {$IF DEFINED(WINDOWS)}False{$ELSE}True{$ENDIF}, LNoiseFound);
+    if LDisplay <> '' then
+      LDisplay := LDisplay + LineEnding;
+  end;
+
+  if LNoiseFound then
+    OutputInfo(ABuilder, 'boss', 'initialized (Delphi-only internal tools skipped on this platform)');
   if LExitCode <> 0 then
-    LOutput := LOutput + #13#10'Warning: boss exit code: ' + LExitCode.ToString + #13#10;
-  GuardShellCommand(ABuilder, 'boss', LOutput, True);
+    LDisplay := LDisplay + #13#10'Warning: boss exit code: ' + LExitCode.ToString + #13#10;
+  GuardShellCommand(ABuilder, 'boss', LDisplay, True);
   ChangeBossFileSourcePath(ABuilder, AProjectDir);
   Result := LOutput;
 end;
@@ -289,7 +305,12 @@ begin
       'on a simple free pascal template.'#13#10 +
       'Ex: pasc new <project name>',
       @NewCommand,
-      [ccRequiresOneArgument]);
+      [ccRequiresOneArgument])
+      .AddOption(
+        'v',
+        'verbose',
+        'shows the boss output as is, without removing the Delphi-only messages.',
+        []);
 end;
 
 end.

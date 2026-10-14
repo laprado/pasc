@@ -24,6 +24,6 @@ fp.dsk
 # End of https://www.toptal.com/developers/gitignore/api/freepascal
 
 *.app
-pasc
+/apps/pasc/pasc
 link*.res
 *.DS_Store

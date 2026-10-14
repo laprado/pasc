@@ -140,7 +140,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\modules\pascli\src;..\src\commands;..\src\utils"/>
+      <OtherUnitFiles Value="..\modules\pascli\src;..\modules\github_com_leandro-lprsoft_pascli\src;..\src\commands;..\src\utils"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

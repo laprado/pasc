@@ -182,7 +182,8 @@ begin
       Builder.UseArguments(['test']);
 
     Builder.Parse;
-    TestCommand(Builder);
+    // when --build is set the test project was just built above
+    RunTests(Builder, not IsBuild);
   end;
 
   if IsRun then

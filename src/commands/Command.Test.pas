@@ -14,8 +14,8 @@ interface
 uses
   Command.Interfaces;
 
-  /// <summary> This command recursively searches for a previously compiled test project 
-  /// from the current folder and runs it. At the end of the execution, an xml file with 
+  /// <summary> This command searches for a fpcunit test project in the current folder or in
+  /// a tests subfolder, builds it using lazbuild and runs it. At the end of the execution, an xml file with 
   /// the same name as the test project is expected to be read. From this reading, a result
   /// is generated with the objective of highlighting the tests that failed, formatting the 
   /// name of the source code file with a line and column in a format that vscode is able to 
@@ -29,10 +29,32 @@ uses
   /// output user instructions about the execution state of this command. </param>
   procedure TestCommand(ABuilder: ICommandBuilder);
 
+  /// <summary> Runs the test project found from the current directory and outputs the report.
+  /// If ABuild is true the test project is built with lazbuild before running. </summary>
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output user instructions about the execution state of this command. </param>
+  /// <param name="ABuild"> Builds the test project before running it. </param>
+  procedure RunTests(ABuilder: ICommandBuilder; const ABuild: Boolean);
+
+  /// <summary> Builds the test project using lazbuild. The .lpi file with the same name of
+  /// the project file is preferred if it exists. Returns true if the build succeeded. </summary>
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output the build result in case of failure. </param>
+  /// <param name="AProjectFile"> Test project file (.lpr or .lpi). </param>
+  function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string): Boolean;
+
   /// <summary> Registry a test command using the command builder from pascli. </summary>
   /// <param name="ABuilder"> Command builder of the main application that will be used to
   /// registry the command. </param>
   procedure Registry(ABuilder: ICommandBuilder);
+
+  /// <summary> From the current directory it tries to locate an fpcunit compatible test 
+  /// project, in the current folder or in a tests subfolder. Returns the complete test project
+  /// file name, or empty if the project does not exist or is not of the expected type.
+  /// </summary>  
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output info about the existence of the test project and whether it is valid. </param>
+  function FindTestProject(ABuilder: ICommandBuilder): string;
 
   /// <summary> From the current directory it tries to locate an fpcunit compatible test 
   /// project that has been previously compiled. Returns complete test file executable name.
@@ -47,11 +69,53 @@ implementation
 uses
   Classes,
   SysUtils,
+  StrUtils,
+  Math,
   Utils.Interfaces,
   Utils.Tests,
   Utils.Leak,
   Utils.Shell,
   Utils.IO;
+
+function FindTestProject(ABuilder: ICommandBuilder): string;
+begin
+  Result := FindProjectFile(GetCurrentDir, 'TestRunner');
+  if Result = '' then
+    Result := FindProjectFile(ConcatPaths([GetCurrentDir, 'tests']), 'TestRunner');
+
+  if Result = '' then
+    ABuilder.Output(
+      'A test project was not found in the current path or in a tests subfolder. '#13#10 +
+      'The test project must be based on the fpcunit test framework.');
+end;
+
+function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string): Boolean;
+var
+  LProjectFile, LOutput: string;
+  LExitCode: Integer = 0;
+begin
+  LProjectFile := ChangeFileExt(AProjectFile, '.lpi');
+  if not FileExists(LProjectFile) then
+    LProjectFile := AProjectFile;
+
+  try
+    LOutput := ShellExecute('lazbuild', [LProjectFile], LExitCode);
+  except
+    on E: Exception do
+    begin
+      ABuilder.Output('lazbuild does not exist or its path is not configured in the PATH environment.');
+      ExitCode := 1;
+      Exit(False);
+    end;
+  end;
+
+  Result := (LExitCode = 0) and (not ContainsText(LOutput, 'Error: '));
+  if not Result then
+  begin
+    ABuilder.Output('Error building the test project ' + LProjectFile + ':' + #13#10 + LOutput);
+    ExitCode := IfThen(LExitCode = 0, 1, LExitCode);
+  end;
+end;
 
 function GetTestExecutable(ABuilder: ICommandBuilder): string;
 var
@@ -59,22 +123,14 @@ var
 begin
   Result := '';
 
-  LProjectFile := FindProjectFile(GetCurrentDir, 'TestRunner');
+  LProjectFile := FindTestProject(ABuilder);
   if LProjectFile = '' then
-    LProjectFile := FindProjectFile(ConcatPaths([GetCurrentDir, 'tests']), 'TestRunner');
-
-  if LProjectFile = '' then
-  begin
-    ABuilder.Output(
-      'A test project was not found in the current path or in a tests subfolder. '#13#10 +
-      'The test project must be based on the fpcunit test framework.');
     exit;
-  end;
     
   LExeFile := ChangeFileExt(LProjectFile, {$IF DEFINED(WINDOWS)}'.exe'{$ELSE}''{$ENDIF});
   if not FileExists(LExeFile) then
   begin
-    ABuilder.Output('Executable test not found. Build it before running pasc test');
+    ABuilder.Output('Executable test not found: ' + LExeFile);
     exit;
   end;
 
@@ -82,12 +138,24 @@ begin
 end;
 
 procedure TestCommand(ABuilder: ICommandBuilder);
+begin
+  RunTests(ABuilder, True);
+end;
+
+procedure RunTests(ABuilder: ICommandBuilder; const ABuild: Boolean);
 var
-  LExeFile, LExeOnly, LXmlFile, LTestCase, LOutput: string;
+  LProjectFile, LExeFile, LExeOnly, LXmlFile, LTestCase, LOutput: string;
   LReport: TTestReport;
   LLeak: ILeakReport;
   LExitCode: Integer = 0;
 begin
+  if ABuild then
+  begin
+    LProjectFile := FindTestProject(ABuilder);
+    if (LProjectFile = '') or (not BuildTestProject(ABuilder, LProjectFile)) then
+      Exit;
+  end;
+
   LExeFile := GetTestExecutable(ABuilder);
   if LExeFile.IsEmpty then
     Exit;
@@ -129,8 +197,8 @@ begin
       'test',
       'run the tests and display a nice report, with links to testing methods.'#13#10 +
       ''#13#10 +
-      'This command recursively searches for a previously compiled test project '#13#10 +
-      'from the current folder and runs it. At the end of the execution, an xml '#13#10 +
+      'This command searches for a fpcunit test project in the current folder or in '#13#10 +
+      'a tests subfolder, builds it using lazbuild and runs it. At the end of the execution, an xml '#13#10 +
       'file with the same name as the test project is expected to be read. From '#13#10 + 
       'this reading, a result is generated with the objective of highlighting '#13#10 +
       'the tests that failed, formatting the name of the source code file with '#13#10 + 

@@ -130,7 +130,7 @@ end;
 
 procedure InitializeGit(ABuilder: ICommandBuilder; const AProjectDir: string);
 var
-  LGitOutput: string;
+  LGitOutput, LProjectName: string;
   LExitCode: Integer = 0;
 begin
   SetCurrentDir(AProjectDir);
@@ -138,7 +138,13 @@ begin
   if LExitCode <> 0 then
     raise Exception.Create(LGitOutput);
   GuardShellCommand(ABuilder, 'git', LGitOutput, True);
-  SaveFileContent(ConcatPaths([AProjectDir, '.gitignore']), GetResource('gitignore'));
+  LProjectName := ExtractFileName(ExcludeTrailingPathDelimiter(AProjectDir));
+  SaveFileContent(
+    ConcatPaths([AProjectDir, '.gitignore']),
+    GetResource('gitignore') + #10 +
+    '# project executables'#10 +
+    '/' + LProjectName + #10 +
+    '/tests/Test' + LProjectName + #10);
 end;
 
 procedure ChangeBossFileSourcePath(ABuilder: ICommandBuilder; const AProjectDir: string);

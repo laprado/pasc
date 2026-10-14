@@ -47,35 +47,42 @@ uses
   Command.Colors,
   Utils.Shell;
 
-function FindProject(const AProjectDir, AProjectFile: string): string;
+function FindFirstFile(const AProjectDir, AExt: string): string;
 var
   LSearch: TSearchRec;
+begin
+  Result := '';
+  if FindFirst(ConcatPaths([AProjectDir, '*' + AExt]), faAnyFile, LSearch) = 0 then
+    try
+      repeat
+        if SameText(ExtractFileExt(LSearch.Name), AExt) then
+          Exit(ConcatPaths([AProjectDir, LSearch.Name]));
+      until FindNext(LSearch) <> 0;
+    finally
+      FindClose(LSearch);
+    end;
+end;
+
+function FindProject(const AProjectDir, AProjectFile: string): string;
 begin
   Result := '';
   if not DirectoryExists(AProjectDir) then
     exit;
 
-  if FileExists(ConcatPaths([AProjectDir, AProjectFile])) then
+  if (AProjectFile <> '') and FileExists(ConcatPaths([AProjectDir, AProjectFile])) then
     exit(ConcatPaths([AProjectDir, AProjectFile]));
-  
-  if FindFirst(ConcatPaths([AProjectDir, '*.lpr']), faAnyFile, LSearch) = 0 then
-    try
-      repeat
-        if ((LSearch.Attr and faAnyFile) <> 0) and (ExtractFileExt(LSearch.Name) = '.lpr') then
-        begin
-          FindClose(LSearch);
-          Exit(ConcatPaths([AProjectDir, LSearch.Name]));
-        end;
-      until FindNext(LSearch) <> 0;
-    finally
-      FindClose(LSearch);
-    end;  
+
+  // lazbuild works with the .lpi file, the .lpr is a fallback
+  Result := FindFirstFile(AProjectDir, '.lpi');
+  if Result = '' then
+    Result := FindFirstFile(AProjectDir, '.lpr');
 end;
 
 procedure BuildCommand(ABuilder: ICommandBuilder);
 var
   LProjectFile: string = '';
-  LOutput, LBuildMode: string;
+  LOutput: string;
+  LArgs: TArray<string>;
   LExitCode: Integer = 0;
 begin
   if Length(ABuilder.GetParsedArguments) > 0 then
@@ -117,10 +124,13 @@ begin
   
   // shell command to build the project
   try
-    LBuildMode := IfThen(ABuilder.CheckOption('d'), '--build-mode=Debug', '');
-    LBuildMode := IfThen(ABuilder.CheckOption('r'), '--build-mode=Release', '');
+    LArgs := [LProjectFile];
+    if ABuilder.CheckOption('d') then
+      LArgs := LArgs + ['--build-mode=Debug']
+    else if ABuilder.CheckOption('r') then
+      LArgs := LArgs + ['--build-mode=Release'];
 
-    LOutput := ShellExecute('lazbuild', [LProjectFile, LBuildMode], LExitCode);
+    LOutput := ShellExecute('lazbuild', LArgs, LExitCode);
     if ContainsText(LOutput, 'Error: ') then
       ABuilder.State := 'Error during build was detected.';
     ABuilder.OutputColor(LOutput + #13#10, ABuilder.ColorTheme.Other);
@@ -143,12 +153,12 @@ begin
     .AddCommand(
       'build',
       'build the project in current directory or one provided as an argument.'#13#10 +
-      ABuilder.ExeName + 'is not able to compile the project by itself, it is just '#13#10 +
+      ABuilder.ExeName + ' is not able to compile the project by itself, it is just '#13#10 +
       'calling lazbuild to do it. This command exists only to enable the watch command.'#13#10 +
       'Ex: ' + ABuilder.ExeName + ' build'#13#10 +
-      'Ex: ' + ABuilder.ExeName + ' build sample1.lpr',
+      'Ex: ' + ABuilder.ExeName + ' build sample1.lpi',
       @BuildCommand,
-      [ccRequiresOneArgument])
+      [])
       .AddOption(
           'd', 'debug', 
           'build the project in debug mode, .lpi file must have a debug mode', ['r'])

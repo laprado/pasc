@@ -183,6 +183,13 @@ begin
   AssertTrue(
     'gitignore file does not exists in project folder "' + LProjectFolder + '"', 
     FileExists(LExpected));
+
+  AssertTrue(
+    'gitignore should ignore the project executable',
+    ContainsText(GetFileContent(LExpected), #10'/sample_test'#10));
+  AssertTrue(
+    'gitignore should ignore the test project executable',
+    ContainsText(GetFileContent(LExpected), #10'/tests/Testsample_test'#10));
 end;
 
 procedure TTestCommandNew.TestCreateProjectFolders;

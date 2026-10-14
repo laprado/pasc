@@ -88,6 +88,9 @@ begin
   AssertTrue(
     'Should call the test app: "TestPasc" ',
     ContainsText(MockShellCapture, 'TestPasc'));
+  AssertTrue(
+    'Should build the test project: "lazbuild" ',
+    ContainsText(MockShellCapture, 'lazbuild ' + ConcatPaths([FWorkingFolder, 'test_for_watch.lpr'])));
 end;
 
 procedure TTestCommandTest.TestGetTestExecutable;

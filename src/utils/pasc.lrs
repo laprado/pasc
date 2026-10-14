@@ -368,3 +368,27 @@ LazarusResources.Add('quickstart','TXT',[
   +'Step One)'#10#10'Text for step one.'#10#10'@section(1 SecSecond Step Two)'
   +#10#10'Text for step two.'
 ]);
+LazarusResources.Add('pascjson','TXT',[
+  '{'#10'  "members": ["packages/*", "apps/*"]'#10'}'#10
+]);
+LazarusResources.Add('packagelpk','TXT',[
+  '<?xml version="1.0" encoding="UTF-8"?>'#10'<CONFIG>'#10'  <Package Version="'
+  +'5">'#10'    <Name Value="{PACKAGENAME}"/>'#10'    <Type Value="RunAndDesign'
+  +'Time"/>'#10'    <CompilerOptions>'#10'      <Version Value="11"/>'#10'     '
+  +' <SearchPaths>'#10'        <OtherUnitFiles Value="src"/>'#10'        <UnitO'
+  +'utputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>'#10'      </SearchPat'
+  +'hs>'#10'    </CompilerOptions>'#10'    <Files>'#10'      <Item>'#10'       '
+  +' <Filename Value="src/{PACKAGENAME}.hello.pas"/>'#10'        <UnitName Valu'
+  +'e="{PACKAGENAME}.Hello"/>'#10'      </Item>'#10'    </Files>'#10'    <Requi'
+  +'redPkgs>'#10'      <Item>'#10'        <PackageName Value="FCL"/>'#10'      '
+  +'</Item>'#10'    </RequiredPkgs>'#10'    <UsageOptions>'#10'      <UnitPath '
+  +'Value="$(PkgOutDir)"/>'#10'    </UsageOptions>'#10'    <PublishOptions>'#10
+  +'      <Version Value="2"/>'#10'      <UseFileFilters Value="True"/>'#10'   '
+  +' </PublishOptions>'#10'  </Package>'#10'</CONFIG>'#10
+]);
+LazarusResources.Add('packageunitpas','TXT',[
+  'unit {PACKAGENAME}.Hello;'#10#10'{$MODE DELPHI}{$H+}'#10#10'interface'#10#10
+  +'  function Hello: string;'#10#10'implementation'#10#10'function Hello: stri'
+  +'ng;'#10'begin'#10'  Result := ''Hello from {PACKAGENAME}'';'#10'end;'#10#10
+  +'end.'#10
+]);

@@ -1,0 +1,16 @@
+unit {PACKAGENAME}.Hello;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+  function Hello: string;
+
+implementation
+
+function Hello: string;
+begin
+  Result := 'Hello from {PACKAGENAME}';
+end;
+
+end.

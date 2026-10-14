@@ -81,6 +81,7 @@ begin
   SaveFileContent(ConcatPaths([Result, WORKSPACE_FILE]), '{ "members": ["apps/*"] }');
   SaveFileContent(ConcatPaths([Result, 'apps', 'cli', 'cli.lpi']), APP_LPI);
   SaveFileContent(ConcatPaths([Result, 'modules', 'github_com_a_lib', 'boss.json']), '{ "mainsrc": "src/" }');
+  SaveFileContent(ConcatPaths([Result, 'modules', 'github_com_a_lib', 'src', 'lib.pas']), 'unit lib;');
 end;
 
 procedure TTestCommandDeps.TestCommandDepsRegistry;

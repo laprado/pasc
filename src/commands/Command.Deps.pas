@@ -114,7 +114,7 @@ var
   LTestProject: string;
 begin
   LModuleDirs := GetModuleSourceDirs(AWorkspaceDir);
-  OutputInfo(ABuilder, 'Modules', IntToStr(Length(LModuleDirs)) + ' found in the workspace modules folder');
+  OutputInfo(ABuilder, 'Modules', IntToStr(Length(LModuleDirs)) + ' source folders found in the workspace modules');
 
   for LMember in GetWorkspaceMembers(AWorkspaceDir) do
   begin

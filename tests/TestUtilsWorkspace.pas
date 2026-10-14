@@ -31,6 +31,8 @@ type
     procedure TestSortMembersByDependency;
     procedure TestSortMembersCircularReference;
     procedure TestGetModuleSourceDirs;
+    procedure TestGetModuleSourceDirsMultipleMainSrc;
+    procedure TestGetModuleSourceDirsSubfolders;
     procedure TestSyncModulePaths;
     procedure TestSyncModulePathsReplacesOldModules;
   end;
@@ -266,18 +268,59 @@ var
 begin
   LModules := ConcatPaths([FWorkingFolder, 'ws', 'modules']);
   ForceDirectories(ConcatPaths([LModules, '.dcu']));
+  SaveFileContent(ConcatPaths([LModules, '.dcu', 'ignored.pas']), 'unit ignored;');
   ForceDirectories(ConcatPaths([LModules, 'github_com_a_lib', 'src']));
-  ForceDirectories(ConcatPaths([LModules, 'github_com_b_root']));
-  ForceDirectories(ConcatPaths([LModules, 'github_com_c_nojson']));
   SaveFileContent(ConcatPaths([LModules, 'github_com_a_lib', 'boss.json']), '{ "mainsrc": "./src/" }');
-  SaveFileContent(ConcatPaths([LModules, 'github_com_b_root', 'boss.json']), '{ "mainsrc": "./" }');
+  SaveFileContent(ConcatPaths([LModules, 'github_com_a_lib', 'src', 'a.pas']), 'unit a;');
+  // without mainsrc the module root is searched
+  ForceDirectories(ConcatPaths([LModules, 'github_com_b_nojson']));
+  SaveFileContent(ConcatPaths([LModules, 'github_com_b_nojson', 'b.pp']), 'unit b;');
 
   LDirs := GetModuleSourceDirs(ConcatPaths([FWorkingFolder, 'ws']));
 
-  AssertEquals('dot folders are not modules', 3, Length(LDirs));
+  AssertEquals('dot folders are not modules', 2, Length(LDirs));
   AssertEquals('mainsrc is used', ConcatPaths([LModules, 'github_com_a_lib', 'src']), LDirs[0]);
-  AssertEquals('./ is the module root', ConcatPaths([LModules, 'github_com_b_root']), LDirs[1]);
-  AssertEquals('no boss.json is the module root', ConcatPaths([LModules, 'github_com_c_nojson']), LDirs[2]);
+  AssertEquals('no boss.json is the module root', ConcatPaths([LModules, 'github_com_b_nojson']), LDirs[1]);
+end;
+
+procedure TTestUtilsWorkspace.TestGetModuleSourceDirsMultipleMainSrc;
+var
+  LModule: string;
+  LDirs: TArray<string>;
+begin
+  LModule := ConcatPaths([FWorkingFolder, 'ws', 'modules', 'github_com_a_multi']);
+  ForceDirectories(ConcatPaths([LModule, 'core', 'src']));
+  ForceDirectories(ConcatPaths([LModule, 'util', 'src']));
+  ForceDirectories(ConcatPaths([LModule, 'samples']));
+  SaveFileContent(ConcatPaths([LModule, 'boss.json']), '{ "mainsrc": "core/src;util/src/" }');
+  SaveFileContent(ConcatPaths([LModule, 'core', 'src', 'core.pas']), 'unit core;');
+  SaveFileContent(ConcatPaths([LModule, 'util', 'src', 'util.pas']), 'unit util;');
+  SaveFileContent(ConcatPaths([LModule, 'samples', 'sample.pas']), 'unit sample;');
+
+  LDirs := GetModuleSourceDirs(ConcatPaths([FWorkingFolder, 'ws']));
+
+  AssertEquals('only the mainsrc folders. Check: ' + string.Join(';', LDirs), 2, Length(LDirs));
+  AssertEquals(ConcatPaths([LModule, 'core', 'src']), LDirs[0]);
+  AssertEquals(ConcatPaths([LModule, 'util', 'src']), LDirs[1]);
+end;
+
+procedure TTestUtilsWorkspace.TestGetModuleSourceDirsSubfolders;
+var
+  LModule: string;
+  LDirs: TArray<string>;
+begin
+  LModule := ConcatPaths([FWorkingFolder, 'ws', 'modules', 'github_com_a_deep']);
+  ForceDirectories(ConcatPaths([LModule, 'src', 'sub', 'inner']));
+  ForceDirectories(ConcatPaths([LModule, 'src', 'empty']));
+  SaveFileContent(ConcatPaths([LModule, 'boss.json']), '{ "mainsrc": "src" }');
+  SaveFileContent(ConcatPaths([LModule, 'src', 'main.pas']), 'unit main;');
+  SaveFileContent(ConcatPaths([LModule, 'src', 'sub', 'inner', 'deep.inc']), '{ include }');
+
+  LDirs := GetModuleSourceDirs(ConcatPaths([FWorkingFolder, 'ws']));
+
+  AssertEquals('folders with sources only. Check: ' + string.Join(';', LDirs), 2, Length(LDirs));
+  AssertEquals(ConcatPaths([LModule, 'src']), LDirs[0]);
+  AssertEquals('subfolders are searched', ConcatPaths([LModule, 'src', 'sub', 'inner']), LDirs[1]);
 end;
 
 procedure TTestUtilsWorkspace.TestSyncModulePaths;

@@ -29,6 +29,7 @@ type
     procedure TestNewCommandBasic;
     procedure TestCreateSupportFilesForVSCode;
     procedure TestCreateProjectFiles;
+    procedure TestCreateProjectFilesBuildModes;
     procedure TestInitializeBoss;
     procedure TestChangeBossFileSourcePath;
     procedure TestInitializeGit;
@@ -356,6 +357,24 @@ begin
   AssertTrue(
     'app should be created in the apps folder of the workspace. Check: ' + MockOutputCaptured,
     FileExists(ConcatPaths([LWorkspaceDir, WORKSPACE_APPS_DIR, 'cli', 'cli.lpi'])));
+end;
+
+procedure TTestCommandNew.TestCreateProjectFilesBuildModes;
+var
+  LProjectFolder, LContent: string;
+begin
+  CreateProjectFolders(FBuilder, 'sample_test', LProjectFolder);
+  CreateProjectFiles(FBuilder, 'sample_test', LProjectFolder);
+  LContent := GetFileContent(ConcatPaths([LProjectFolder, 'sample_test.lpi']));
+
+  // each build mode has its own compiler options, Release must find the src units too
+  AssertEquals(
+    'src should be in the search paths of both build modes',
+    2, Length(SplitString(LContent, '<OtherUnitFiles Value="src"/>')) - 1);
+  // a separate output per mode, so a broken mode cannot use the units of the other one
+  AssertEquals(
+    'each build mode should have its own unit output folder',
+    2, Length(SplitString(LContent, '<UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-$(BuildMode)"/>')) - 1);
 end;
 
 initialization

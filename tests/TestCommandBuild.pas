@@ -30,6 +30,7 @@ type
     procedure TestFindProject;
     procedure TestFindProjectFallbackToLpr;
     procedure TestCommandBuildDoesNotRequireArgument;
+    procedure TestCommandBuildWorkspaceInDependencyOrder;
   end;
 
 implementation
@@ -40,7 +41,8 @@ uses
   MockCommandBuilder,
   Command.Build,
   Utils.IO,
-  Utils.Shell;
+  Utils.Shell,
+  Utils.Workspace;
 
 procedure TTestCommandBuild.SetUp;
 begin
@@ -111,6 +113,45 @@ begin
   AssertEquals(
     'build without arguments should be valid',
     0, Length(FBuilder.Validate));
+end;
+
+procedure TTestCommandBuild.TestCommandBuildWorkspaceInDependencyOrder;
+const
+  LPK =
+    '<?xml version="1.0" encoding="UTF-8"?>' + LineEnding +
+    '<CONFIG>' + LineEnding +
+    '  <Package Version="5">' + LineEnding +
+    '    <Files>' + LineEnding +
+    '    </Files>' + LineEnding +
+    '  </Package>' + LineEnding +
+    '</CONFIG>' + LineEnding;
+var
+  LWorkspaceDir, LAlpha, LZeta: string;
+begin
+  LWorkspaceDir := ConcatPaths([FWorkingFolder, 'build_ws']);
+  ForceDirectories(ConcatPaths([LWorkspaceDir, 'packages', 'alpha']));
+  ForceDirectories(ConcatPaths([LWorkspaceDir, 'packages', 'zeta']));
+  SaveFileContent(ConcatPaths([LWorkspaceDir, WORKSPACE_FILE]), '{ "members": ["packages/*"] }');
+  LAlpha := ConcatPaths([LWorkspaceDir, 'packages', 'alpha', 'alpha.lpk']);
+  LZeta := ConcatPaths([LWorkspaceDir, 'packages', 'zeta', 'zeta.lpk']);
+  SaveFileContent(LAlpha, LPK);
+  SaveFileContent(LZeta, LPK);
+  // alpha comes first by name, but requires zeta
+  AddPackageReference(LAlpha, LZeta);
+
+  SetCurrentDir(LWorkspaceDir);
+  FBuilder.UseArguments(['build']);
+  FBuilder.Parse;
+  ShellExecute := @MockShell;
+  BuildCommand(FBuilder);
+
+  AssertTrue(
+    'zeta should be built before alpha. Check: ' + MockShellCapture,
+    (Pos('lazbuild ' + LZeta, MockShellCapture) > 0) and
+    (Pos('lazbuild ' + LZeta, MockShellCapture) < Pos('lazbuild ' + LAlpha, MockShellCapture)));
+  AssertTrue(
+    'Output should contain the summary. Check: ' + MockOutputCaptured,
+    ContainsText(MockOutputCaptured, '2 members built'));
 end;
 
 initialization

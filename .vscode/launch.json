@@ -8,9 +8,9 @@
       "type": "fpDebug",
       "request": "launch",
       "name": "Debug",
-      "program": "${workspaceFolder}/pasc${command:executableExtension}",
+      "program": "${workspaceFolder}/apps/pasc/pasc${command:executableExtension}",
       "workingdirectory": "${workspaceFolder}",
-      "parameters": ["build", "./tests/TestPasc.lpi"],
+      "parameters": ["build", "./apps/pasc/tests/TestPasc.lpi"],
       "fpdserver": {
         "executable": "${extensionInstallFolder:cnoc.fpdebug}/bin/fpdserver"
       },
@@ -20,7 +20,7 @@
       "type": "fpDebug",
       "request": "launch",
       "name": "Debug Test",
-      "program": "${workspaceFolder}/tests/TestPasc${command:executableExtension}",
+      "program": "${workspaceFolder}/apps/pasc/tests/TestPasc${command:executableExtension}",
       "parameters": ["--suite=TTestUtilsShell"],
       "fpdserver": {
         "executable": "${extensionInstallFolder:cnoc.fpdebug}/bin/fpdserver"
@@ -31,7 +31,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug Test (LLDB)",
-      "program": "${workspaceFolder}/tests/TestPasc",
+      "program": "${workspaceFolder}/apps/pasc/tests/TestPasc",
       "args": ["--suite=TTestCommandTest"],
       "preLaunchTask": "pasc: tests build"
     }

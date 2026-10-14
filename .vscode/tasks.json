@@ -7,7 +7,7 @@
       "label": "lazbuild: build",
       "type": "shell",
       "command": "lazbuild",
-      "args": ["./pasc.lpi"],
+      "args": ["./apps/pasc/pasc.lpi"],
       "problemMatcher": {
         "owner": "external",
         "fileLocation": ["absolute"],
@@ -31,9 +31,9 @@
     {
       "label": "build resources",
       "type": "shell",
-      "windows": {"command": "./resources/compile.ps1"},
-      "linux": {"command": "./resources/compile.sh"},
-      "osx": {"command": "./resources/compile.sh"},
+      "windows": {"command": "./resources/compile.ps1", "options": {"cwd": "${workspaceFolder}/apps/pasc"}},
+      "linux": {"command": "./resources/compile.sh", "options": {"cwd": "${workspaceFolder}/apps/pasc"}},
+      "osx": {"command": "./resources/compile.sh", "options": {"cwd": "${workspaceFolder}/apps/pasc"}},
       "group": {
         "kind": "build",
         "isDefault": false
@@ -42,9 +42,9 @@
     {
       "label": "build tests resources",
       "type": "shell",
-      "windows": {"command": "./tests/resources/compile.ps1"},
-      "linux": {"command": "./tests/resources/compile.sh"},
-      "osx": {"command": "./tests/resources/compile.sh"},
+      "windows": {"command": "./tests/resources/compile.ps1", "options": {"cwd": "${workspaceFolder}/apps/pasc"}},
+      "linux": {"command": "./tests/resources/compile.sh", "options": {"cwd": "${workspaceFolder}/apps/pasc"}},
+      "osx": {"command": "./tests/resources/compile.sh", "options": {"cwd": "${workspaceFolder}/apps/pasc"}},
       "group": {
         "kind": "build",
         "isDefault": false
@@ -54,13 +54,13 @@
       "label": "pasc: tests build",
       "type": "shell",
       "command": "lazbuild",
-      "args": ["./tests/TestPasc.lpi"],
+      "args": ["./apps/pasc/tests/TestPasc.lpi"],
       "dependsOn": "build tests resources"
     },
     {
       "label": "pasc: tests",
       "type": "shell",
-      "command": "./pasc",
+      "command": "./apps/pasc/pasc",
       "args": ["test"],
       "group": {
         "kind": "test",
@@ -73,6 +73,7 @@
       "type": "shell",
       "command": "pasc",
       "args": ["watch", "--build", "--test", "."],
+      "options": {"cwd": "${workspaceFolder}/apps/pasc"},
       "problemMatcher": []
     },
     {
@@ -80,6 +81,7 @@
       "type": "shell",
       "command": "pasc",
       "args": ["watch", "--build", "--test=TTestCommandInstall", "."],
+      "options": {"cwd": "${workspaceFolder}/apps/pasc"},
       "problemMatcher": []
     },
     {

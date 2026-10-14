@@ -28,6 +28,8 @@ type
     procedure TestCommandBuildRegistry;    
     procedure TestCommandBuildBasic;
     procedure TestFindProject;
+    procedure TestFindProjectFallbackToLpr;
+    procedure TestCommandBuildDoesNotRequireArgument;
   end;
 
 implementation
@@ -37,6 +39,7 @@ uses
   StrUtils,
   MockCommandBuilder,
   Command.Build,
+  Utils.IO,
   Utils.Shell;
 
 procedure TTestCommandBuild.SetUp;
@@ -83,8 +86,31 @@ end;
 procedure TTestCommandBuild.TestFindProject;
 begin
   AssertEquals(
-    ConcatPaths([ExtractFilePath(ParamStr(0)), 'TestPasc.lpr']),
+    ConcatPaths([ExtractFilePath(ParamStr(0)), 'TestPasc.lpi']),
     FindProject(ExtractFilePath(ParamStr(0)), ''));
+end;
+
+procedure TTestCommandBuild.TestFindProjectFallbackToLpr;
+var
+  LFolder: string;
+begin
+  LFolder := ConcatPaths([FWorkingFolder, 'build_lpr_only']);
+  ForceDirectories(LFolder);
+  SaveFileContent(ConcatPaths([LFolder, 'sample.lpr']), 'program sample;');
+
+  AssertEquals(
+    ConcatPaths([LFolder, 'sample.lpr']),
+    FindProject(LFolder, ''));
+end;
+
+procedure TTestCommandBuild.TestCommandBuildDoesNotRequireArgument;
+begin
+  FBuilder.UseArguments(['build']);
+  FBuilder.Parse;
+
+  AssertEquals(
+    'build without arguments should be valid',
+    0, Length(FBuilder.Validate));
 end;
 
 initialization

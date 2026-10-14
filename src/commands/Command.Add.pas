@@ -164,8 +164,10 @@ begin
     end;
 
     OutputInfo(ABuilder, 'Project', IfThen(LProjectName = '', 'not found', LProjectName));
-    OutputInfo(ABuilder, 'Source', 
-      IfThen(LSourceFound, 'at least one pascal file detected', 'No pascal source file found'));
+    // the project file is a source file too, so this is only relevant without a project
+    if LProjectName = '' then
+      OutputInfo(ABuilder, 'Source', 
+        IfThen(LSourceFound, 'at least one pascal file detected', 'No pascal source file found'));
 
     if (not (LProjectName <> '')) and (not LSourceFound) then
       raise Exception.Create('No project or source file found in current directory.');

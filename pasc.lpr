@@ -25,6 +25,29 @@ var
 
 {$R *.res}
 
+/// <summary> pascli has no -h/--help options, so "pasc --help" and "pasc <command> --help"
+/// are translated to "pasc help" and "pasc help <command>". Returns false if no help option
+/// was provided. </summary>
+function HelpArguments(out AArgs: TArray<string>): Boolean;
+var
+  I: Integer;
+  LCommand: string = '';
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if (ParamStr(I) = '-h') or (ParamStr(I) = '--help') then
+      Result := True
+    else if (LCommand = '') and (Copy(ParamStr(I), 1, 1) <> '-') then
+      LCommand := ParamStr(I);
+
+  AArgs := ['help'];
+  if LCommand <> '' then
+    AArgs := AArgs + [LCommand];
+end;
+
+var
+  HelpArgs: TArray<string>;
+
 begin
   PascApp := TCommandApp.Create(nil);
   try
@@ -44,6 +67,9 @@ begin
     Command.Watch.Registry(PascApp.CommandBuilder);
 
     PascApp.CommandBuilder.AddArgument('project file name', acOptional);
+
+    if HelpArguments(HelpArgs) then
+      PascApp.CommandBuilder.UseArguments(HelpArgs);
 
     PascApp.Run;
   finally

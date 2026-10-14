@@ -12,6 +12,7 @@ uses
   Resources,
   TestUtilsIO,
   TestUtilsLeak,
+  TestUtilsAdopt,
   TestUtilsBoss,
   TestUtilsOutput,
   TestUtilsResources,

@@ -30,6 +30,8 @@ type
     procedure TestCommandTestBasic;
     procedure TestCommandTestSpecificSuite;
     procedure TestGetTestExecutable;
+    procedure TestCommandTestExitCodeOnFailure;
+    procedure TestCommandTestExitCodeOnSuccess;
   end;
 
 implementation
@@ -128,6 +130,59 @@ begin
   AssertTrue(
     'Should call the test app: "--suite=TTestCommandTest" ',
     ContainsText(MockShellCapture, '--suite=TTestCommandTest'));  
+end;
+
+function TestResultsXml(const AResult: string): string;
+begin
+  Result :=
+    '<?xml version="1.0" encoding="utf-8"?>' + LineEnding +
+    '<TestResults>' + LineEnding +
+    '  <TestListing>' + LineEnding +
+    '    <TestSuite Name="" NumberOfErrors="0" NumberOfFailures="0" NumberOfRunTests="1">' + LineEnding +
+    '      <TestSuite Name="TTestSample" NumberOfErrors="0" NumberOfFailures="0" NumberOfRunTests="1">' + LineEnding +
+    '        <Test Name="TestOne" Result="' + AResult + '" ElapsedTime="00:00:00.000"/>' + LineEnding +
+    '      </TestSuite>' + LineEnding +
+    '    </TestSuite>' + LineEnding +
+    '  </TestListing>' + LineEnding +
+    '</TestResults>' + LineEnding;
+end;
+
+procedure TTestCommandTest.TestCommandTestExitCodeOnFailure;
+var
+  LExitCode: Integer;
+begin
+  FBuilder.UseArguments(['test']);
+  FBuilder.Parse;
+  ShellExecute := @MockShell;
+  SaveFileContent(ConcatPaths([FWorkingFolder, 'test_for_watch.lpr']), 'TTestPascRunner = class(TTestRunner)');
+  SaveFileContent(ConcatPaths([FWorkingFolder, FExecutable]), 'just for test');
+  SaveFileContent(ConcatPaths([FWorkingFolder, 'test_for_watch.xml']), TestResultsXml('Failed'));
+
+  ExitCode := 0;
+  TestCommand(FBuilder);
+  LExitCode := ExitCode;
+  ExitCode := 0;
+
+  AssertEquals('exit code should be 1 when a test fails. Check: ' + MockOutputCaptured, 1, LExitCode);
+end;
+
+procedure TTestCommandTest.TestCommandTestExitCodeOnSuccess;
+var
+  LExitCode: Integer;
+begin
+  FBuilder.UseArguments(['test']);
+  FBuilder.Parse;
+  ShellExecute := @MockShell;
+  SaveFileContent(ConcatPaths([FWorkingFolder, 'test_for_watch.lpr']), 'TTestPascRunner = class(TTestRunner)');
+  SaveFileContent(ConcatPaths([FWorkingFolder, FExecutable]), 'just for test');
+  SaveFileContent(ConcatPaths([FWorkingFolder, 'test_for_watch.xml']), TestResultsXml('OK'));
+
+  ExitCode := 0;
+  TestCommand(FBuilder);
+  LExitCode := ExitCode;
+  ExitCode := 0;
+
+  AssertEquals('exit code should be 0 when all tests pass. Check: ' + MockOutputCaptured, 0, LExitCode);
 end;
 
 initialization

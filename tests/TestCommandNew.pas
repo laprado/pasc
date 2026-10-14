@@ -186,10 +186,10 @@ begin
 
   AssertTrue(
     'gitignore should ignore the project executable',
-    ContainsText(GetFileContent(LExpected), #10'/sample_test'#10));
+    ContainsText(GetFileContent(LExpected), LineEnding + '/sample_test' + LineEnding));
   AssertTrue(
     'gitignore should ignore the test project executable',
-    ContainsText(GetFileContent(LExpected), #10'/tests/Testsample_test'#10));
+    ContainsText(GetFileContent(LExpected), LineEnding + '/tests/Testsample_test' + LineEnding));
 end;
 
 procedure TTestCommandNew.TestCreateProjectFolders;

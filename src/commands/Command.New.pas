@@ -141,10 +141,10 @@ begin
   LProjectName := ExtractFileName(ExcludeTrailingPathDelimiter(AProjectDir));
   SaveFileContent(
     ConcatPaths([AProjectDir, '.gitignore']),
-    GetResource('gitignore') + #10 +
-    '# project executables'#10 +
-    '/' + LProjectName + #10 +
-    '/tests/Test' + LProjectName + #10);
+    GetResource('gitignore') + LineEnding +
+    '# project executables' + LineEnding +
+    '/' + LProjectName + LineEnding +
+    '/tests/Test' + LProjectName + LineEnding);
 end;
 
 procedure ChangeBossFileSourcePath(ABuilder: ICommandBuilder; const AProjectDir: string);

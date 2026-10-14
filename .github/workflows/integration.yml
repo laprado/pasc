@@ -8,6 +8,13 @@ on:
     - ".github/workflows/deploy.yml"
     branches:
     - "main"
+  pull_request:
+    paths-ignore:
+    - "README.md"
+    - "docs/**"
+    - ".github/workflows/deploy.yml"
+    branches:
+    - "main"
 
 jobs:
   build:
@@ -23,7 +30,8 @@ jobs:
       uses: gcarreno/setup-lazarus@v3
       with:
         lazarus-version: ${{ matrix.lazarus-versions }}
-        with-cache: true
+        # cache corrupts the .deb from SourceForge: gcarreno/setup-lazarus#32
+        with-cache: false
 
     - name: Download and extract BOSS (Linux)
       if: ${{ matrix.operating-system == 'ubuntu-latest' }}

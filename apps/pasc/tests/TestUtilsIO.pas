@@ -86,11 +86,23 @@ end;
 
 procedure TTestUtilsIO.TestGetJsonFileContentWithOutComments;
 var
-  LActual: string;
+  LFileName, LActual: string;
 begin
-  LActual := GetFileContent(ConcatPaths([FCurrentDir, '.vscode/tasks.json']));
+  // a vscode like json file, with comment lines
+  LFileName := ConcatPaths([GetTempDir, 'TestGetJsonFileContentWithOutComments.json']);
+  SaveFileContent(LFileName,
+    '{' + LineEnding +
+    '  // See https://go.microsoft.com/fwlink/?LinkId=733558' + LineEnding +
+    '  "version": "2.0.0",' + LineEnding +
+    '    // indented comment' + LineEnding +
+    '  "tasks": []' + LineEnding +
+    '}' + LineEnding);
 
-  AssertTrue('Json file tasks.josn should have content', Length(LActual) > 0);
+  LActual := GetJsonFileContentWithOutComments(LFileName);
+
+  AssertFalse('comment lines should be removed. Check: ' + LActual, ContainsText(LActual, '//'));
+  AssertTrue('json content should be kept. Check: ' + LActual, ContainsText(LActual, '"version": "2.0.0",'));
+  AssertTrue('json content should be kept. Check: ' + LActual, ContainsText(LActual, '"tasks": []'));
 end;
 
 procedure TTestUtilsIO.TestSaveFileContent;
@@ -118,9 +130,8 @@ procedure TTestUtilsIO.TestFindProjectFile;
 var
   LPath: string;
 begin
-  LPath := FCurrentDir;
-  if not ((EndsText('tests', LPath) or EndsText('tests' + PathDelim, LPath))) then
-    LPath := ConcatPaths([LPath, 'tests']);
+  // the test project folder, wherever the tests are run from
+  LPath := ExtractFileDir(ExpandFileName(ParamStr(0)));
 
   AssertEquals(
     ChangeFileExt(ParamStr(0), '.lpr'), 

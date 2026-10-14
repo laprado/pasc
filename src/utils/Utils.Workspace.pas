@@ -72,8 +72,9 @@ type
   function FindMember(const AMembers: TWorkspaceMembers; const AName: string): TWorkspaceMember;
 
   /// <summary> Returns the complete paths of the source folders of the boss modules installed
-  /// in the modules folder of the workspace, using the "mainsrc" of each module boss.json.
-  /// </summary>
+  /// in the modules folder of the workspace. Like boss, each folder of the "mainsrc" of the
+  /// module boss.json (separated by ";", or the module root without it) is searched
+  /// recursively, and every folder with .pas, .pp or .inc files is returned. </summary>
   /// <param name="AWorkspaceDir"> Workspace root folder. </param>
   function GetModuleSourceDirs(const AWorkspaceDir: string): TArray<string>;
 
@@ -365,17 +366,76 @@ begin
   Result := True;
 end;
 
+function HasSourceFiles(const ADir: string): Boolean;
+var
+  LSearch: TSearchRec;
+begin
+  Result := False;
+  if FindFirst(ConcatPaths([ADir, AllFilesMask]), faAnyFile, LSearch) = 0 then
+    try
+      repeat
+        if ((LSearch.Attr and faDirectory) = 0) and
+           AnsiMatchText(ExtractFileExt(LSearch.Name), ['.pas', '.pp', '.inc']) then
+          Exit(True);
+      until FindNext(LSearch) <> 0;
+    finally
+      FindClose(LSearch);
+    end;
+end;
+
+procedure AddSourceDirs(var ADirs: TArray<string>; const ADir: string);
+var
+  LSearch: TSearchRec;
+  LSubDirs: TStringList;
+  LSubDir, LExisting: string;
+  LFound: Boolean;
+begin
+  if HasSourceFiles(ADir) then
+  begin
+    LFound := False;
+    for LExisting in ADirs do
+      if SameFileName(LExisting, ADir) then
+        LFound := True;
+    if not LFound then
+      ADirs := ADirs + [ADir];
+  end;
+
+  LSubDirs := TStringList.Create;
+  try
+    if FindFirst(ConcatPaths([ADir, AllFilesMask]), faDirectory, LSearch) = 0 then
+      try
+        repeat
+          // hidden folders like .git have no sources
+          if ((LSearch.Attr and faDirectory) <> 0) and not StartsStr('.', LSearch.Name) then
+            LSubDirs.Add(ConcatPaths([ADir, LSearch.Name]));
+        until FindNext(LSearch) <> 0;
+      finally
+        FindClose(LSearch);
+      end;
+    LSubDirs.Sort;
+    for LSubDir in LSubDirs do
+      AddSourceDirs(ADirs, LSubDir);
+  finally
+    LSubDirs.Free;
+  end;
+end;
+
 function GetModuleSourceDirs(const AWorkspaceDir: string): TArray<string>;
 var
-  LModulesDir, LModuleDir, LMainSrc, LBossFile: string;
+  LModulesDir, LModuleDir, LMainSrc, LBossFile, LDir: string;
   LSearch: TSearchRec;
-  LDirs: TStringList;
+  LDirs, LMainSrcs: TStringList;
   LJson: TJSONData;
+  LHasMainSrc: Boolean;
 begin
   Result := [];
   LModulesDir := ConcatPaths([AWorkspaceDir, 'modules']);
   LDirs := TStringList.Create;
+  LMainSrcs := TStringList.Create;
   try
+    LMainSrcs.StrictDelimiter := True;
+    LMainSrcs.Delimiter := ';';
+
     if FindFirst(ConcatPaths([LModulesDir, AllFilesMask]), faDirectory, LSearch) = 0 then
       try
         repeat
@@ -402,19 +462,24 @@ begin
           LJson.Free;
         end;
       end;
-      LMainSrc := StringReplace(LMainSrc, '\', '/', [rfReplaceAll]);
-      if StartsStr('./', LMainSrc) then
-        LMainSrc := Copy(LMainSrc, 3, Length(LMainSrc));
-      while EndsStr('/', LMainSrc) do
-        LMainSrc := Copy(LMainSrc, 1, Length(LMainSrc) - 1);
 
-      if LMainSrc = '' then
-        Result := Result + [ConcatPaths([LModulesDir, LModuleDir])]
-      else
-        Result := Result + [ExpandFileName(ConcatPaths([LModulesDir, LModuleDir, NormalizePath(LMainSrc)]))];
+      // like boss: "mainsrc" may have several folders separated by ";", each one is searched
+      // recursively and every folder with sources is used; without it the module root is used
+      LMainSrcs.DelimitedText := LMainSrc;
+      LHasMainSrc := False;
+      for LDir in LMainSrcs do
+        if Trim(LDir) <> '' then
+        begin
+          LHasMainSrc := True;
+          AddSourceDirs(Result, ExcludeTrailingPathDelimiter(
+            ExpandFileName(ConcatPaths([LModulesDir, LModuleDir, NormalizePath(Trim(LDir))]))));
+        end;
+      if not LHasMainSrc then
+        AddSourceDirs(Result, ConcatPaths([LModulesDir, LModuleDir]));
     end;
   finally
     LDirs.Free;
+    LMainSrcs.Free;
   end;
 end;
 

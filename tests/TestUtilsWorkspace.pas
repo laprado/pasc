@@ -28,6 +28,7 @@ type
     procedure TestAddPackageReferenceToApp;
     procedure TestAddPackageReferenceToPackage;
     procedure TestAddPackageReferenceAlreadyRequired;
+    procedure TestAddPackageReferenceNumberedItems;
     procedure TestSortMembersByDependency;
     procedure TestSortMembersCircularReference;
     procedure TestGetModuleSourceDirs;
@@ -366,6 +367,37 @@ begin
     'old module path should be replaced. Check: ' + GetFileContent(LApp),
     ContainsText(GetFileContent(LApp),
       '<OtherUnitFiles Value="src;modules/.dcu;../../modules/github_com_new"/>'));
+end;
+
+procedure TTestUtilsWorkspace.TestAddPackageReferenceNumberedItems;
+var
+  LApp, LCore, LContent: string;
+begin
+  LCore := CreatePackage('core');
+  LApp := CreateApp('cli');
+  // older lazarus format, with a count and numbered items
+  SaveFileContent(LApp,
+    '<?xml version="1.0" encoding="UTF-8"?>' + LineEnding +
+    '<CONFIG>' + LineEnding +
+    '  <ProjectOptions>' + LineEnding +
+    '    <RequiredPackages Count="1">' + LineEnding +
+    '      <Item1>' + LineEnding +
+    '        <PackageName Value="LCL"/>' + LineEnding +
+    '      </Item1>' + LineEnding +
+    '    </RequiredPackages>' + LineEnding +
+    '    <Units Count="0">' + LineEnding +
+    '    </Units>' + LineEnding +
+    '  </ProjectOptions>' + LineEnding +
+    '</CONFIG>' + LineEnding);
+
+  AssertTrue('reference should be added', AddPackageReference(LApp, LCore));
+
+  LContent := GetFileContent(LApp);
+  AssertTrue('count should be updated. Check: ' + LContent, ContainsText(LContent, '<RequiredPackages Count="2">'));
+  AssertTrue('a numbered item should be added', ContainsText(LContent, '<Item2>' + LineEnding +
+    '        <PackageName Value="core"/>'));
+  AssertEquals('a single section', 1, Length(SplitString(LContent, '<RequiredPackages')) - 1);
+  AssertEquals('references count', 1, Length(GetPackageReferences(LApp)));
 end;
 
 initialization

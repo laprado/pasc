@@ -318,14 +318,14 @@ end;
 function AddPackageReference(const AProjectFile, APackageFile: string): Boolean;
 const
   ITEM =
-    '      <Item>' + LineEnding +
-    '        <PackageName Value="%s"/>' + LineEnding +
-    '        <DefaultFilename Value="%s" Prefer="True"/>' + LineEnding +
-    '      </Item>' + LineEnding;
+    '      <%0:s>' + LineEnding +
+    '        <PackageName Value="%1:s"/>' + LineEnding +
+    '        <DefaultFilename Value="%2:s" Prefer="True"/>' + LineEnding +
+    '      </%0:s>' + LineEnding;
 var
-  LContent, LPackageName, LRelative, LTag, LItem: string;
+  LContent, LPackageName, LRelative, LTag, LItemTag, LCount: string;
   LReference: string;
-  LPos: Integer;
+  LPos, LTagEnd, LCountValue: Integer;
   LIsPackage: Boolean;
 begin
   for LReference in GetPackageReferences(AProjectFile) do
@@ -338,28 +338,52 @@ begin
     ExpandFileName(APackageFile));
   // lazarus project files use / on every platform
   LRelative := StringReplace(LRelative, '\', '/', [rfReplaceAll]);
-  LItem := Format(ITEM, [LPackageName, LRelative]);
 
   LIsPackage := SameText(ExtractFileExt(AProjectFile), '.lpk');
   LTag := IfThen(LIsPackage, 'RequiredPkgs', 'RequiredPackages');
 
   LContent := GetFileContent(AProjectFile);
+  LItemTag := 'Item';
   LPos := Pos('<' + LTag + '>', LContent);
   if LPos > 0 then
+    LTagEnd := LPos + Length('<' + LTag + '>')
+  else
   begin
-    LPos := LPos + Length('<' + LTag + '>');
-    // keep the item after the line break of the opening tag
-    while (LPos <= Length(LContent)) and (LContent[LPos] in [#13, #10]) do
-      Inc(LPos);
-    Insert(LItem, LContent, LPos);
+    // older lazarus files number the items and keep their count: <RequiredPackages Count="1"><Item1>
+    LPos := Pos('<' + LTag + ' Count="', LContent);
+    if LPos > 0 then
+    begin
+      LTagEnd := PosEx('"', LContent, LPos + Length('<' + LTag + ' Count="'));
+      LCount := Copy(LContent, LPos + Length('<' + LTag + ' Count="'),
+        LTagEnd - LPos - Length('<' + LTag + ' Count="'));
+      LCountValue := StrToIntDef(LCount, 0) + 1;
+      Delete(LContent, LPos, LTagEnd - LPos + 1);
+      Insert('<' + LTag + ' Count="' + IntToStr(LCountValue) + '"', LContent, LPos);
+      LTagEnd := PosEx('>', LContent, LPos) + 1;
+      LItemTag := 'Item' + IntToStr(LCountValue);
+      // the new numbered item goes after the last one, before the closing tag
+      LTagEnd := PosEx('    </' + LTag + '>', LContent, LTagEnd);
+    end;
+  end;
+
+  if LPos > 0 then
+  begin
+    if LItemTag = 'Item' then
+      // keep the item after the line break of the opening tag
+      while (LTagEnd <= Length(LContent)) and (LContent[LTagEnd] in [#13, #10]) do
+        Inc(LTagEnd);
+    if LTagEnd = 0 then
+      raise Exception.Create('Unexpected format, could not add the package to ' + AProjectFile);
+    Insert(Format(ITEM, [LItemTag, LPackageName, LRelative]), LContent, LTagEnd);
   end
   else
   begin
     // no required packages yet: a new section before the units (.lpi) or files (.lpk)
-    LPos := Pos(IfThen(LIsPackage, '    <Files>', '    <Units>'), LContent);
+    LPos := Pos(IfThen(LIsPackage, '    <Files', '    <Units'), LContent);
     if LPos = 0 then
       raise Exception.Create('Unexpected format, could not add the package to ' + AProjectFile);
-    Insert('    <' + LTag + '>' + LineEnding + LItem + '    </' + LTag + '>' + LineEnding, LContent, LPos);
+    Insert('    <' + LTag + '>' + LineEnding + Format(ITEM, ['Item', LPackageName, LRelative]) +
+      '    </' + LTag + '>' + LineEnding, LContent, LPos);
   end;
 
   SaveFileContent(AProjectFile, LContent);

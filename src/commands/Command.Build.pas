@@ -45,7 +45,9 @@ uses
   StrUtils,
   Math,
   Command.Colors,
-  Utils.Shell;
+  Utils.Output,
+  Utils.Shell,
+  Utils.Workspace;
 
 function FindFirstFile(const AProjectDir, AExt: string): string;
 var
@@ -72,31 +74,130 @@ begin
   if (AProjectFile <> '') and FileExists(ConcatPaths([AProjectDir, AProjectFile])) then
     exit(ConcatPaths([AProjectDir, AProjectFile]));
 
-  // lazbuild works with the .lpi file, the .lpr is a fallback
+  // lazbuild works with the .lpi (or .lpk for a package), the .lpr is a fallback
   Result := FindFirstFile(AProjectDir, '.lpi');
   if Result = '' then
+    Result := FindFirstFile(AProjectDir, '.lpk');
+  if Result = '' then
     Result := FindFirstFile(AProjectDir, '.lpr');
+end;
+
+function CheckLazbuild(ABuilder: ICommandBuilder): Boolean;
+var
+  LExitCode: Integer = 0;
+begin
+  Result := True;
+  try
+    ShellExecute('lazbuild', ['-v'], LExitCode);
+    ExitCode := LExitCode;
+  except
+    on E: Exception do
+    begin
+      ExitCode := IfThen(LExitCode = 0, 1, LExitCode);
+      ABuilder.OutputColor('lazbuild does not exist or its path is not configure to be in PATH environment.',
+      ABuilder.ColorTheme.Error);
+      Result := False;
+    end;
+  end;
+end;
+
+function BuildProject(ABuilder: ICommandBuilder; const AProjectFile: string): Boolean;
+var
+  LOutput: string;
+  LArgs: TArray<string>;
+  LExitCode: Integer = 0;
+begin
+  Result := False;
+  try
+    LArgs := [AProjectFile];
+    // packages (.lpk) have no build modes
+    if not SameText(ExtractFileExt(AProjectFile), '.lpk') then
+      if ABuilder.CheckOption('d') then
+        LArgs := LArgs + ['--build-mode=Debug']
+      else if ABuilder.CheckOption('r') then
+        LArgs := LArgs + ['--build-mode=Release'];
+
+    LOutput := ShellExecute('lazbuild', LArgs, LExitCode);
+    if ContainsText(LOutput, 'Error: ') then
+      ABuilder.State := 'Error during build was detected.';
+    ABuilder.OutputColor(LOutput + #13#10, ABuilder.ColorTheme.Other);
+    ExitCode := LExitCode;
+    Result := (LExitCode = 0) and (ABuilder.State = '');
+  except
+    on E: Exception do
+    begin
+      ExitCode := IfThen(LExitCode = 0, 1, LExitCode);
+      ABuilder.OutputColor('error trying to build the project file.',
+      ABuilder.ColorTheme.Error);
+    end;
+  end;
+end;
+
+procedure BuildWorkspace(ABuilder: ICommandBuilder; const AWorkspaceDir: string);
+var
+  LMembers: TWorkspaceMembers;
+  LMember: TWorkspaceMember;
+begin
+  LMembers := SortMembersByDependency(GetWorkspaceMembers(AWorkspaceDir));
+  if Length(LMembers) = 0 then
+  begin
+    OutputInfo(ABuilder, 'Workspace', 'has no members to build');
+    Exit;
+  end;
+
+  for LMember in LMembers do
+  begin
+    OutputInfo(ABuilder, 'Building', ExtractRelativePath(
+      IncludeTrailingPathDelimiter(AWorkspaceDir), LMember.ProjectFile));
+    if not BuildProject(ABuilder, LMember.ProjectFile) then
+    begin
+      OutputError(ABuilder, 'Workspace', 'build stopped at ' + LMember.Name);
+      if ExitCode = 0 then
+        ExitCode := 1;
+      Exit;
+    end;
+  end;
+
+  OutputInfo(ABuilder, 'Workspace', IntToStr(Length(LMembers)) + ' members built');
 end;
 
 procedure BuildCommand(ABuilder: ICommandBuilder);
 var
   LProjectFile: string = '';
-  LOutput: string;
-  LArgs: TArray<string>;
-  LExitCode: Integer = 0;
+  LWorkspaceDir: string;
 begin
   if Length(ABuilder.GetParsedArguments) > 0 then
   begin
     LProjectFile := ABuilder.GetParsedArguments[0].Value;
-    if not FileExists(LProjectFile) then
+    // a folder, like a workspace member, builds the project found in it
+    if DirectoryExists(LProjectFile) then
+      LProjectFile := FindProject(LProjectFile, '')
+    else if not FileExists(LProjectFile) then
     begin
       ABuilder.OutputColor('Project ' + LProjectFile + ' not found.'#13#10, ABuilder.ColorTheme.Error);
       exit;    
     end;
-  end;
+  end
+  else
+    LProjectFile := FindProject(GetCurrentDir, '');
 
-  if not FileExists(LProjectFile) then
-    LProjectFile := FindProject(GetCurrentDir, LProjectFile);
+  // at the root of a workspace, without a project of its own, builds every member
+  LWorkspaceDir := FindWorkspaceRoot(GetCurrentDir);
+  if (Trim(LProjectFile) = '') and (Length(ABuilder.GetParsedArguments) = 0) and
+     (LWorkspaceDir <> '') and SameFileName(LWorkspaceDir, ExcludeTrailingPathDelimiter(GetCurrentDir)) then
+  begin
+    if CheckLazbuild(ABuilder) then
+      try
+        BuildWorkspace(ABuilder, LWorkspaceDir);
+      except
+        on E: Exception do
+        begin
+          OutputError(ABuilder, 'Workspace', E.Message);
+          ExitCode := 1;
+        end;
+      end;
+    exit;
+  end;
 
   if Trim(LProjectFile) = '' then
   begin
@@ -109,42 +210,8 @@ begin
     exit;      
   end;
   
-  try
-    LOutput := ShellExecute('lazbuild', ['-v'], LExitCode);
-    ExitCode := LExitCode;
-  except
-    on E: Exception do
-    begin
-      ExitCode := IfThen(LExitCode = 0, 1, LExitCode);
-      ABuilder.OutputColor('lazbuild does not exist or its path is not configure to be in PATH environment.',
-      ABuilder.ColorTheme.Error);
-      exit;      
-    end;
-  end;
-  
-  // shell command to build the project
-  try
-    LArgs := [LProjectFile];
-    if ABuilder.CheckOption('d') then
-      LArgs := LArgs + ['--build-mode=Debug']
-    else if ABuilder.CheckOption('r') then
-      LArgs := LArgs + ['--build-mode=Release'];
-
-    LOutput := ShellExecute('lazbuild', LArgs, LExitCode);
-    if ContainsText(LOutput, 'Error: ') then
-      ABuilder.State := 'Error during build was detected.';
-    ABuilder.OutputColor(LOutput + #13#10, ABuilder.ColorTheme.Other);
-    ExitCode := LExitCode;
-  except
-    on E: Exception do
-    begin
-      ExitCode := IfThen(LExitCode = 0, 1, LExitCode);
-      ABuilder.OutputColor('error trying to build the project file.',
-      ABuilder.ColorTheme.Error);
-      exit;      
-    end;
-  end;
-
+  if CheckLazbuild(ABuilder) then
+    BuildProject(ABuilder, LProjectFile);
 end;
 
 procedure Registry(ABuilder: ICommandBuilder);
@@ -155,8 +222,11 @@ begin
       'build the project in current directory or one provided as an argument.'#13#10 +
       ABuilder.ExeName + ' is not able to compile the project by itself, it is just '#13#10 +
       'calling lazbuild to do it. This command exists only to enable the watch command.'#13#10 +
+      'At the root of a workspace it builds every member, packages before the members '#13#10 +
+      'that require them. A folder builds the project found in it.'#13#10 +
       'Ex: ' + ABuilder.ExeName + ' build'#13#10 +
-      'Ex: ' + ABuilder.ExeName + ' build sample1.lpi',
+      'Ex: ' + ABuilder.ExeName + ' build sample1.lpi'#13#10 +
+      'Ex: ' + ABuilder.ExeName + ' build apps/cli',
       @BuildCommand,
       [])
       .AddOption(

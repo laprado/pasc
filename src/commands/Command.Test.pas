@@ -201,6 +201,7 @@ end;
 procedure TestCommand(ABuilder: ICommandBuilder);
 var
   LWorkspaceDir: string;
+  LResult: TTestRunResult;
 begin
   // at the root of a workspace, without a test project of its own, tests every member
   LWorkspaceDir := FindWorkspaceRoot(GetCurrentDir);
@@ -219,7 +220,12 @@ begin
     Exit;
   end;
 
-  RunTests(ABuilder, True);
+  // exit code 1 when the tests could not run or any of them failed, like the workspace,
+  // so scripts and CI can rely on it
+  LResult := RunTests(ABuilder, True);
+  if (not LResult.Ran) or (LResult.Failed > 0) then
+    if ExitCode = 0 then
+      ExitCode := 1;
 end;
 
 function RunTests(ABuilder: ICommandBuilder; const ABuild: Boolean): TTestRunResult;
@@ -295,6 +301,7 @@ begin
       ''#13#10 +
       'At the root of a workspace it runs the tests of every member that has a '#13#10 +
       'tests folder and outputs a summary.'#13#10 +
+      'The exit code is 1 if the tests could not run or any of them failed.'#13#10 +
       ''#13#10 +
       'Ex: ' + ABuilder.ExeName + ' test'#13#10 +
       'Ex: ' + ABuilder.ExeName + ' test=TTestCaseSuite',

@@ -101,9 +101,9 @@ $DocArgs =
   "--additional="  + $BasePath + "docs\generate\commandtest.txt " +
   "--additional="  + $BasePath + "docs\generate\commandversion.txt " +
   "--additional="  + $BasePath + "docs\generate\commandwatch.txt " +
-  $BasePath + "src\commands\*.pas " + 
-  $BasePath + "src\utils\*.pas " + 
-  $BasePath + "pasc.lpr "
+  $BasePath + "apps\pasc\src\commands\*.pas " + 
+  $BasePath + "apps\pasc\src\utils\*.pas " + 
+  $BasePath + "apps\pasc\pasc.lpr "
 
 Start-Process -FilePath "pasdoc" -ArgumentList $DocArgs -Wait -NoNewWindow
 

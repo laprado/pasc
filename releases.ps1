@@ -76,9 +76,9 @@ function Exit-Script {
     $CurrentPath = Get-Location
     $ReleasePath = Join-Path -Path $CurrentPath -ChildPath "releases"
     
-    $Executable = Join-Path -Path $CurrentPath -ChildPath "pasc"
+    $Executable = Join-Path -Path $CurrentPath -ChildPath "apps/pasc/pasc"
     if ($TargetOS -eq "win64") {
-        $Executable = Join-Path -Path $CurrentPath -ChildPath "pasc.exe"
+        $Executable = Join-Path -Path $CurrentPath -ChildPath "apps/pasc/pasc.exe"
     } 
     $ZipFile = "pasc-" + $TargetCPU + "-" + $TargetOS + ".zip"
     $Archive = Join-Path -Path $ReleasePath -ChildPath $ZipFile
@@ -87,8 +87,8 @@ function Exit-Script {
 
   Build-TargetPath
 
-  Build-Project -ProjectName "pasc.lpi" -TargetOS "win64" -TargetCPU "x86_64"
-  Build-Project -ProjectName "pasc.lpi" -TargetOS "linux" -TargetCPU "x86_64"
-  Build-Project -ProjectName "pasc.lpi" -TargetOS "darwin" -TargetCPU "x86_64"
-  Build-Project -ProjectName "pasc.lpi" -TargetOS "linux" -TargetCPU "aarch64"
-  Build-Project -ProjectName "pasc.lpi" -TargetOS "darwin" -TargetCPU "aarch64"
+  Build-Project -ProjectName "apps/pasc/pasc.lpi" -TargetOS "win64" -TargetCPU "x86_64"
+  Build-Project -ProjectName "apps/pasc/pasc.lpi" -TargetOS "linux" -TargetCPU "x86_64"
+  Build-Project -ProjectName "apps/pasc/pasc.lpi" -TargetOS "darwin" -TargetCPU "x86_64"
+  Build-Project -ProjectName "apps/pasc/pasc.lpi" -TargetOS "linux" -TargetCPU "aarch64"
+  Build-Project -ProjectName "apps/pasc/pasc.lpi" -TargetOS "darwin" -TargetCPU "aarch64"

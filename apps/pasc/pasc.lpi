@@ -34,7 +34,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src\commands;src\utils;modules\.dcp;modules\.dcu;modules;modules\pascli\src;modules\github_com_leandro-lprsoft_pascli\src"/>
+            <OtherUnitFiles Value="src\commands;src\utils;../../modules/github_com_leandro-lprsoft_pascli/src"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -102,7 +102,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src\commands;src\utils;modules\.dcp;modules\.dcu;modules;modules\pascli\src;modules\github_com_leandro-lprsoft_pascli\src"/>
+      <OtherUnitFiles Value="src\commands;src\utils;../../modules/github_com_leandro-lprsoft_pascli/src"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

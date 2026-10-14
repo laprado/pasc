@@ -23,20 +23,23 @@
           # cache corrupts the .deb from SourceForge: gcarreno/setup-lazarus#32
           with-cache: false
   
+      # boss 3.0.17, the version used locally: since 3.x it names the module folders
+      # like modules/github_com_<user>_<repo>, which the member search paths point to
       - name: Download and extract BOSS (Linux)
         if: ${{ matrix.operating-system == 'ubuntu-latest' }}
         run: |
-          curl -LOk https://github.com/HashLoad/boss/releases/download/v3.0.10/boss-linux-amd64.zip
-          unzip boss-linux-amd64.zip
-          chmod +x ./linux-amd64/boss
-          echo "$GITHUB_WORKSPACE/linux-amd64" >> $GITHUB_PATH
+          curl -fsSLO https://github.com/HashLoad/boss/releases/download/v3.0.17/boss_Linux_x86_64.tar.gz
+          echo "c40ec124f4f2563b6c873dbeeba2dfad6b80b644a0f765a7291bd9efd0b21e3e  boss_Linux_x86_64.tar.gz" | sha256sum -c -
+          mkdir boss-bin && tar xzf boss_Linux_x86_64.tar.gz -C boss-bin
+          echo "$GITHUB_WORKSPACE/boss-bin" >> $GITHUB_PATH
   
       - name: Download and extract BOSS (Windows)
         if: ${{ matrix.operating-system == 'windows-latest' }}
         run: |
-          curl -LOk https://github.com/HashLoad/boss/releases/download/v3.0.10/boss-windows-amd64.zip
-          unzip boss-windows-amd64.zip
-          echo (Join-Path $env:GITHUB_WORKSPACE "windows-amd64") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          curl -fsSLO https://github.com/HashLoad/boss/releases/download/v3.0.17/boss_Windows_x86_64.zip
+          if ((Get-FileHash boss_Windows_x86_64.zip -Algorithm SHA256).Hash -ne "aac660435608a9e6a4a05eb9ee9a2c4a0a6156d5efe6e48f48fa1227006cda5d") { throw "boss checksum mismatch" }
+          Expand-Archive boss_Windows_x86_64.zip -DestinationPath boss-bin
+          echo (Join-Path $env:GITHUB_WORKSPACE "boss-bin") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
   
       - name: BOSS Update packages
         run: boss update
@@ -49,15 +52,16 @@
         if: ${{ matrix.operating-system == 'ubuntu-latest' }}
         run: |
           echo "building main application..."
-          lazbuild "pasc.lpi" -B --build-mode=Release
-          zip ./assets/pasc-linux-amd64.zip ./pasc
+          lazbuild "apps/pasc/pasc.lpi" -B --build-mode=Release
+          # -j keeps the executable at the root of the zip, as mise expects
+          zip -j ./assets/pasc-linux-amd64.zip ./apps/pasc/pasc
           
       - name: Building (Windows)
         if: ${{ matrix.operating-system == 'windows-latest' }}
         run: |
           echo "building main application..."
-          lazbuild "pasc.lpi" -B --build-mode=Release --os=Win64 --cpu=x86_64
-          Compress-Archive ./pasc.exe ./assets/pasc-windows-amd64.zip
+          lazbuild "apps/pasc/pasc.lpi" -B --build-mode=Release --os=Win64 --cpu=x86_64
+          Compress-Archive ./apps/pasc/pasc.exe ./assets/pasc-windows-amd64.zip
           
       # artifacts are immutable since v4, so each OS uploads its own and the release merges them
       - uses: actions/upload-artifact@v4

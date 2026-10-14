@@ -54,6 +54,8 @@ uses
   StrUtils,
   Command.Colors,
   Command.Build,
+  Command.Deps,
+  Utils.Adopt,
   Utils.IO,
   Utils.Output,
   Utils.Resources,
@@ -204,6 +206,53 @@ begin
     OutputInfo(ABuilder, 'Package', LPackage.Name + ' added to ' + ExtractFileName(LTestProject));
 end;
 
+procedure AdoptWorkspace(ABuilder: ICommandBuilder);
+const
+  KINDS: array[TAdoptKind] of string = (
+    'cannot be converted',
+    'app with a src folder, moved to the apps folder',
+    'lazarus app with units at the root, moved to the apps folder',
+    'several projects or packages, adopted in place without moving files');
+var
+  LPlan: TAdoptPlan;
+  LMove: TAdoptMove;
+  LReference: TAdoptReference;
+  LText: string;
+begin
+  LPlan := AnalyzeAdoption(GetCurrentDir, ABuilder.CheckOption('force'));
+  OutputInfo(ABuilder, 'Workspace', 'project layout: ' + KINDS[LPlan.Kind]);
+  if LPlan.Kind = akRefused then
+  begin
+    OutputError(ABuilder, 'Error', LPlan.Reason);
+    ExitCode := 1;
+    Exit;
+  end;
+
+  for LMove in LPlan.Moves do
+    OutputInfo(ABuilder, 'Move', LMove.Source + ' -> ' + LMove.Target);
+  for LText in LPlan.Members do
+    OutputInfo(ABuilder, 'Member', LText);
+  for LReference in LPlan.References do
+    OutputInfo(ABuilder, 'Reference', ExtractFileName(LReference.ProjectFile) + ' will require ' +
+      LReference.PackageName + ' by relative path');
+  if Length(LPlan.LeftAtRoot) > 0 then
+    OutputInfo(ABuilder, 'Root', 'stays at the root, review: ' + string.Join(', ', LPlan.LeftAtRoot));
+  for LText in LPlan.Warnings do
+    OutputError(ABuilder, 'Warning', LText);
+
+  if ABuilder.CheckOption('dry-run') then
+  begin
+    OutputInfo(ABuilder, 'Dry run', 'nothing was changed');
+    Exit;
+  end;
+
+  for LText in ApplyAdoption(LPlan) do
+    OutputInfo(ABuilder, 'Done', LText);
+  if DirectoryExists(ConcatPaths([LPlan.Root, 'modules'])) then
+    SyncWorkspaceModules(ABuilder, LPlan.Root);
+  OutputInfo(ABuilder, 'Workspace', 'created, run pasc build and pasc test at the root to verify it');
+end;
+
 procedure AddCommand(ABuilder: ICommandBuilder);
 var
   LProjectDir: string = '';
@@ -211,6 +260,26 @@ var
   LProjectName, LProjectFile, LPackageName: string;
   LSourceFound: Boolean = false;
 begin
+  if ABuilder.CheckOption('workspace') then
+  begin
+    if ABuilder.CheckOption('tests') or ABuilder.CheckOption('docs') or ABuilder.CheckOption('package') then
+    begin
+      OutputError(ABuilder, 'Error', 'the option --workspace cannot be combined with --tests, --docs or --package');
+      ExitCode := 1;
+      Exit;
+    end;
+    try
+      AdoptWorkspace(ABuilder);
+    except
+      on E: Exception do
+      begin
+        OutputError(ABuilder, 'Error', E.Message);
+        ExitCode := 1;
+      end;
+    end;
+    Exit;
+  end;
+
   LAddTests := ABuilder.CheckOption('tests');
   LAddDocs := ABuilder.CheckOption('docs');
   LPackageName := '';
@@ -279,6 +348,7 @@ begin
       'For this command to work you need to provide at least one option. '#13#10 +
       'Inside a workspace the test project of a package requires the package itself, '#13#10 +
       'and the test project of an app requires the packages of the app.'#13#10 +
+      'Ex: pasc add --workspace --dry-run'#13#10 +
       'Ex: pasc add <option>',
       @AddCommand,
       [ccRequiresOneOption])
@@ -298,7 +368,24 @@ begin
         'inside a workspace, makes the project in the current directory (and its '#13#10 +
         'test project) require a workspace package. Ex: --package=core',
         [],
-        ocRequiresValue);
+        ocRequiresValue)
+      .AddOption(
+        'w',
+        'workspace',
+        'converts the project in the current directory to a workspace. An app is moved '#13#10 +
+        'to apps/<name>, a repository with several projects is adopted in place. Requires '#13#10 +
+        'a git repository without uncommitted changes, files are moved with git mv.',
+        [])
+      .AddOption(
+        'n',
+        'dry-run',
+        'with --workspace, only shows what would be changed.',
+        [])
+      .AddOption(
+        'f',
+        'force',
+        'with --workspace, accepts uncommitted changes in the git working tree.',
+        []);
 end;
 
 end.

@@ -24,7 +24,7 @@ jobs:
         operating-system: [ubuntu-latest,windows-latest]
         lazarus-versions: [stable]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Install Lazarus
       uses: gcarreno/setup-lazarus@v3

@@ -22,6 +22,7 @@ uses
   TestCommandAdd,
   TestCommandBuild,
   TestCommandClean,
+  TestCommandDeps,
   TestCommandInstall,
   TestCommandNew,
   TestCommandTest, 

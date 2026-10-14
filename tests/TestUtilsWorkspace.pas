@@ -30,6 +30,9 @@ type
     procedure TestAddPackageReferenceAlreadyRequired;
     procedure TestSortMembersByDependency;
     procedure TestSortMembersCircularReference;
+    procedure TestGetModuleSourceDirs;
+    procedure TestSyncModulePaths;
+    procedure TestSyncModulePathsReplacesOldModules;
   end;
 
 implementation
@@ -254,6 +257,72 @@ begin
   end;
 
   AssertTrue('a circular reference should raise an exception', LRaised);
+end;
+
+procedure TTestUtilsWorkspace.TestGetModuleSourceDirs;
+var
+  LModules: string;
+  LDirs: TArray<string>;
+begin
+  LModules := ConcatPaths([FWorkingFolder, 'ws', 'modules']);
+  ForceDirectories(ConcatPaths([LModules, '.dcu']));
+  ForceDirectories(ConcatPaths([LModules, 'github_com_a_lib', 'src']));
+  ForceDirectories(ConcatPaths([LModules, 'github_com_b_root']));
+  ForceDirectories(ConcatPaths([LModules, 'github_com_c_nojson']));
+  SaveFileContent(ConcatPaths([LModules, 'github_com_a_lib', 'boss.json']), '{ "mainsrc": "./src/" }');
+  SaveFileContent(ConcatPaths([LModules, 'github_com_b_root', 'boss.json']), '{ "mainsrc": "./" }');
+
+  LDirs := GetModuleSourceDirs(ConcatPaths([FWorkingFolder, 'ws']));
+
+  AssertEquals('dot folders are not modules', 3, Length(LDirs));
+  AssertEquals('mainsrc is used', ConcatPaths([LModules, 'github_com_a_lib', 'src']), LDirs[0]);
+  AssertEquals('./ is the module root', ConcatPaths([LModules, 'github_com_b_root']), LDirs[1]);
+  AssertEquals('no boss.json is the module root', ConcatPaths([LModules, 'github_com_c_nojson']), LDirs[2]);
+end;
+
+procedure TTestUtilsWorkspace.TestSyncModulePaths;
+var
+  LApp, LWorkspaceDir: string;
+begin
+  LWorkspaceDir := ConcatPaths([FWorkingFolder, 'ws']);
+  LApp := CreateApp('cli');
+  SaveFileContent(LApp, StringReplace(GetFileContent(LApp), '    <Units>',
+    '    <SearchPaths>' + LineEnding +
+    '      <OtherUnitFiles Value="src;$(LazarusDir)/x"/>' + LineEnding +
+    '    </SearchPaths>' + LineEnding +
+    '    <Units>', []));
+
+  AssertTrue(
+    'file should be changed',
+    SyncModulePaths(LApp, LWorkspaceDir, [ConcatPaths([LWorkspaceDir, 'modules', 'github_com_a_lib', 'src'])]));
+  AssertTrue(
+    'module path should be relative to the app, keeping the other paths. Check: ' + GetFileContent(LApp),
+    ContainsText(GetFileContent(LApp),
+      '<OtherUnitFiles Value="src;$(LazarusDir)/x;../../modules/github_com_a_lib/src"/>'));
+  AssertFalse(
+    'a second sync should not change the file',
+    SyncModulePaths(LApp, LWorkspaceDir, [ConcatPaths([LWorkspaceDir, 'modules', 'github_com_a_lib', 'src'])]));
+end;
+
+procedure TTestUtilsWorkspace.TestSyncModulePathsReplacesOldModules;
+var
+  LApp, LWorkspaceDir: string;
+begin
+  LWorkspaceDir := ConcatPaths([FWorkingFolder, 'ws']);
+  LApp := CreateApp('cli');
+  // a removed module, and the root relative paths written by boss "projects"
+  SaveFileContent(LApp, StringReplace(GetFileContent(LApp), '    <Units>',
+    '    <SearchPaths>' + LineEnding +
+    '      <OtherUnitFiles Value="src;../../modules/github_com_old/src;modules/.dcu"/>' + LineEnding +
+    '    </SearchPaths>' + LineEnding +
+    '    <Units>', []));
+
+  SyncModulePaths(LApp, LWorkspaceDir, [ConcatPaths([LWorkspaceDir, 'modules', 'github_com_new'])]);
+
+  AssertTrue(
+    'old module path should be replaced. Check: ' + GetFileContent(LApp),
+    ContainsText(GetFileContent(LApp),
+      '<OtherUnitFiles Value="src;modules/.dcu;../../modules/github_com_new"/>'));
 end;
 
 initialization

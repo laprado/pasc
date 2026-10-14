@@ -71,6 +71,27 @@ type
   /// <param name="AName"> Member name. </param>
   function FindMember(const AMembers: TWorkspaceMembers; const AName: string): TWorkspaceMember;
 
+  /// <summary> Returns the complete paths of the source folders of the boss modules installed
+  /// in the modules folder of the workspace, using the "mainsrc" of each module boss.json.
+  /// </summary>
+  /// <param name="AWorkspaceDir"> Workspace root folder. </param>
+  function GetModuleSourceDirs(const AWorkspaceDir: string): TArray<string>;
+
+  /// <summary> Replaces, in every OtherUnitFiles of a .lpi or .lpk file, the paths that point
+  /// to the workspace modules folder by the given module source folders, relative to the file
+  /// folder. Other paths are kept. The file is changed as text to preserve its formatting.
+  /// Returns true if the file was changed. </summary>
+  /// <param name="AProjectFile"> .lpi or .lpk file. </param>
+  /// <param name="AWorkspaceDir"> Workspace root folder. </param>
+  /// <param name="AModuleDirs"> Complete paths of the module source folders. </param>
+  function SyncModulePaths(const AProjectFile, AWorkspaceDir: string;
+    const AModuleDirs: TArray<string>): Boolean;
+
+  /// <summary> Returns the .lpi of the test project of a member, or empty if the member has
+  /// no test project. </summary>
+  /// <param name="AMemberDir"> Member folder. </param>
+  function GetMemberTestProject(const AMemberDir: string): string;
+
 implementation
 
 uses
@@ -342,6 +363,141 @@ begin
 
   SaveFileContent(AProjectFile, LContent);
   Result := True;
+end;
+
+function GetModuleSourceDirs(const AWorkspaceDir: string): TArray<string>;
+var
+  LModulesDir, LModuleDir, LMainSrc, LBossFile: string;
+  LSearch: TSearchRec;
+  LDirs: TStringList;
+  LJson: TJSONData;
+begin
+  Result := [];
+  LModulesDir := ConcatPaths([AWorkspaceDir, 'modules']);
+  LDirs := TStringList.Create;
+  try
+    if FindFirst(ConcatPaths([LModulesDir, AllFilesMask]), faDirectory, LSearch) = 0 then
+      try
+        repeat
+          // .bin, .dcp, .dcu and .bpl are boss folders for Delphi binaries
+          if ((LSearch.Attr and faDirectory) <> 0) and not StartsStr('.', LSearch.Name) then
+            LDirs.Add(LSearch.Name);
+        until FindNext(LSearch) <> 0;
+      finally
+        FindClose(LSearch);
+      end;
+    LDirs.Sort;
+
+    for LModuleDir in LDirs do
+    begin
+      LMainSrc := '';
+      LBossFile := ConcatPaths([LModulesDir, LModuleDir, 'boss.json']);
+      if FileExists(LBossFile) then
+      begin
+        LJson := GetJSON(GetFileContent(LBossFile));
+        try
+          if LJson is TJSONObject then
+            LMainSrc := TJSONObject(LJson).Get('mainsrc', '');
+        finally
+          LJson.Free;
+        end;
+      end;
+      LMainSrc := StringReplace(LMainSrc, '\', '/', [rfReplaceAll]);
+      if StartsStr('./', LMainSrc) then
+        LMainSrc := Copy(LMainSrc, 3, Length(LMainSrc));
+      while EndsStr('/', LMainSrc) do
+        LMainSrc := Copy(LMainSrc, 1, Length(LMainSrc) - 1);
+
+      if LMainSrc = '' then
+        Result := Result + [ConcatPaths([LModulesDir, LModuleDir])]
+      else
+        Result := Result + [ExpandFileName(ConcatPaths([LModulesDir, LModuleDir, NormalizePath(LMainSrc)]))];
+    end;
+  finally
+    LDirs.Free;
+  end;
+end;
+
+function IsInsideFolder(const AFileName, AFolder: string): Boolean;
+var
+  LFolder: string;
+begin
+  LFolder := IncludeTrailingPathDelimiter(ExpandFileName(AFolder));
+  Result := SameFileName(IncludeTrailingPathDelimiter(ExpandFileName(AFileName)), LFolder) or
+    StartsStr(LFolder, ExpandFileName(AFileName));
+end;
+
+function SyncModulePaths(const AProjectFile, AWorkspaceDir: string;
+  const AModuleDirs: TArray<string>): Boolean;
+const
+  TAG = '<OtherUnitFiles Value="';
+var
+  LContent, LProjectDir, LModulesDir, LValue, LEntry, LResolved, LNewValue: string;
+  LEntries: TStringList;
+  LModuleDir: string;
+  LStart, LEnd, LOffset: Integer;
+begin
+  LContent := GetFileContent(AProjectFile);
+  LProjectDir := IncludeTrailingPathDelimiter(ExtractFileDir(ExpandFileName(AProjectFile)));
+  LModulesDir := ConcatPaths([AWorkspaceDir, 'modules']);
+  Result := False;
+  LEntries := TStringList.Create;
+  try
+    LEntries.StrictDelimiter := True;
+    LEntries.Delimiter := ';';
+    LOffset := 1;
+    repeat
+      LStart := PosEx(TAG, LContent, LOffset);
+      if LStart = 0 then
+        Break;
+      Inc(LStart, Length(TAG));
+      LEnd := PosEx('"', LContent, LStart);
+      if LEnd = 0 then
+        Break;
+      LValue := Copy(LContent, LStart, LEnd - LStart);
+
+      // keeps the paths that do not point to the workspace modules
+      LEntries.DelimitedText := LValue;
+      LNewValue := '';
+      for LEntry in LEntries do
+      begin
+        if Trim(LEntry) = '' then
+          Continue;
+        if not ContainsStr(LEntry, '$(') then
+        begin
+          LResolved := NormalizePath(LEntry);
+          if not IsAbsolutePath(LResolved) then
+            LResolved := ConcatPaths([LProjectDir, LResolved]);
+          if IsInsideFolder(LResolved, LModulesDir) then
+            Continue;
+        end;
+        LNewValue := LNewValue + IfThen(LNewValue <> '', ';', '') + LEntry;
+      end;
+
+      for LModuleDir in AModuleDirs do
+        LNewValue := LNewValue + IfThen(LNewValue <> '', ';', '') +
+          StringReplace(ExtractRelativePath(LProjectDir, LModuleDir), '\', '/', [rfReplaceAll]);
+
+      if LNewValue <> LValue then
+      begin
+        Delete(LContent, LStart, LEnd - LStart);
+        Insert(LNewValue, LContent, LStart);
+        LEnd := LStart + Length(LNewValue);
+        Result := True;
+      end;
+      LOffset := LEnd + 1;
+    until False;
+  finally
+    LEntries.Free;
+  end;
+
+  if Result then
+    SaveFileContent(AProjectFile, LContent);
+end;
+
+function GetMemberTestProject(const AMemberDir: string): string;
+begin
+  Result := FindFileByExt(ConcatPaths([AMemberDir, 'tests']), '.lpi');
 end;
 
 end.

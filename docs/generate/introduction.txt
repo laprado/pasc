@@ -14,6 +14,7 @@ An interesting feature is the ease with which a new project can be configured to
     @item(@link(commandbuild Build))
     @item(@link(commandcheck Check))
     @item(@link(commandclean Clean))
+    @item(@link(commandcoverage Coverage))
     @item(@link(commanddeps Deps))
     @item(@link(commanddocs Docs))
     @item(@link(commandhelp Help))

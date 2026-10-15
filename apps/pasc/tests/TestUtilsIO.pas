@@ -130,15 +130,16 @@ procedure TTestUtilsIO.TestFindProjectFile;
 var
   LPath: string;
 begin
-  // the test project folder, wherever the tests are run from
+  // the test project folder, wherever the tests are run from, and whatever the executable
+  // name, like TestPasc-coverage of pasc coverage
   LPath := ExtractFileDir(ExpandFileName(ParamStr(0)));
 
   AssertEquals(
-    ChangeFileExt(ParamStr(0), '.lpr'), 
+    ConcatPaths([LPath, 'TestPasc.lpr']),
     FindProjectFile(LPath, ''));
 
   AssertEquals(
-    ChangeFileExt(ParamStr(0), '.lpr'), 
+    ConcatPaths([LPath, 'TestPasc.lpr']),
     FindProjectFile(LPath, 'TestRunner'));
 end;
 

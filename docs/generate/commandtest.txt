@@ -76,4 +76,6 @@ This an entry on launch.json file, you can choose this debug item as the start p
 
 Test command is also used by another command called watch that will be covered in the @link(commandwatch watch) section.
 
+To measure how much of the code the tests run, see @link(commandcoverage pasc coverage).
+
 @table( @rowHead( @cell(Next @link(commandversion Version Command)) ) )

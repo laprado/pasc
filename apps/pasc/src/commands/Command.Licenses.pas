@@ -42,7 +42,7 @@ begin
       'shows the pasc license and the notices of the third-party software.'#13#10 +
       'The notices list the software included in the executable, the resources '#13#10 +
       'embedded in it and the tools pasc runs but does not distribute, like '#13#10 +
-      'Free Pascal, Lazarus, boss, git and PasDoc.'#13#10 +
+      'Free Pascal, Lazarus, boss, git, PasDoc and kcov.'#13#10 +
       'Ex: ' + ABuilder.ExeName + ' licenses',
       @LicensesCommand,
       [ccNoParameters]);

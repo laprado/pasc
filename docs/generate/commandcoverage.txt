@@ -1,0 +1,62 @@
+@title(Coverage)
+@shorttitle(Coverage)
+
+@section(1 SecFirst Description)
+
+Measures the coverage of the unit tests with @html(<a href="https://github.com/SimonKagstrom/kcov">kcov</a>). FPC does not emit the .gcno and .gcda files that gcov and lcov read, but kcov needs no instrumentation: it reads the DWARF line info of the test executable and sets a breakpoint on each line, so any FPC executable with debug info works.
+
+Example:
+@longCode(
+  pasc coverage
+)
+
+Like @link(commandtest pasc test), the command looks for the test project in the current folder or in a tests subfolder. Then it:
+
+@unorderedList(
+  @item(Adds a @bold(Coverage) build mode to the .lpi of the test project when it is missing. It has the options of the Default one, with the same search paths, which @link(commanddeps pasc deps) keeps in sync, plus DWARF 3 debug info, no optimization, so lines are not merged or removed, and no heaptrc. The units go to lib/coverage, so they do not get mixed with the Default build, and the executable stays next to the Default one as Test<name>-coverage, so tests that find their files from the folder of the executable still work.)
+  @item(Builds the test project with @html(<code>lazbuild --bm=Coverage</code>) and runs the tests under kcov, counting only the sources of the project: its src folder, without the tests and the modules.)
+  @item(Shows the report of the tests, the coverage of each source file and the path of the HTML report, written to a coverage folder at the root of the project or workspace. When the project is in a git repository, the folder and the Test<name>-coverage executable are added to the .gitignore at that root if git does not ignore them yet.)
+)
+
+@preformatted(
+    Coverage apps/cmd 94.00% (47/50 lines)
+              89.66%   26/29  src/commands/Command.Count.pas
+             100.00%   21/21  src/commands/Command.Greet.pas
+      Report coverage/cmd/index.html
+)
+
+At the root of a @link(workspace workspace) it covers every member that has a tests folder, shows the total and merges the reports of the members in coverage/index.html.
+
+@section(1 SecSecond Units that no test uses)
+
+kcov only sees the units linked into the test executable. A unit that no test uses, directly or indirectly, does not appear in its report, instead of appearing with 0%, which would make the percentage look better than it is. The command lists those units, the ones with code, so the gap is visible:
+
+@preformatted(
+ Not counted src/features/health/Health.Routes.pas (no test uses it)
+)
+
+Units with only declarations, like types and constants, have no line for kcov and are not listed.
+
+@section(1 SecThird Options)
+
+@unorderedList(
+  @item(@bold(--min=<percent>) exits with 1 when the coverage, or the total of the workspace, is below the given percentage, which is useful in a CI: @html(<code>pasc coverage --min=80</code>).)
+  @item(@bold(--open) opens the HTML report in the browser.)
+)
+
+The exit code is 1 when the build fails, when the tests could not run or any of them failed, and when the coverage is below --min.
+
+@section(1 SecFourth Installing kcov)
+
+kcov runs on Linux and macOS, not on Windows. When it is not in the PATH, the command shows how to install it:
+
+@unorderedList(
+  @item(Arch Linux: @html(<code>sudo pacman -S kcov</code>))
+  @item(Debian 13: @html(<code>sudo apt install kcov</code>))
+  @item(Fedora: @html(<code>sudo dnf install kcov</code>))
+  @item(macOS: @html(<code>brew install kcov</code>))
+)
+
+Ubuntu 24.04 has no kcov package; it can be built from the sources, as the kcov repository explains.
+
+@table( @rowHead( @cell(Next @link(commanddeps Deps Command)) ) )

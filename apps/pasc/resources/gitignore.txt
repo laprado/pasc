@@ -20,5 +20,6 @@ fp.dsk
 **/lib/
 **/backup/
 **/modules/
+/coverage/
 
 *.app

@@ -51,7 +51,10 @@ type
   /// <param name="ABuilder"> Command builder of the main application that will be used to
   /// output the build result in case of failure. </param>
   /// <param name="AProjectFile"> Test project file (.lpr or .lpi). </param>
-  function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string): Boolean;
+  /// <param name="ABuildMode"> Build mode passed to lazbuild, empty for the default one.
+  /// </param>
+  function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string;
+    const ABuildMode: string = ''): Boolean;
 
   /// <summary> Registry a test command using the command builder from pascli. </summary>
   /// <param name="ABuilder"> Command builder of the main application that will be used to
@@ -103,7 +106,8 @@ begin
       'The test project must be based on the fpcunit test framework.');
 end;
 
-function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string): Boolean;
+function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string;
+  const ABuildMode: string = ''): Boolean;
 var
   LProjectFile, LOutput: string;
   LExitCode: Integer = 0;
@@ -113,7 +117,10 @@ begin
     LProjectFile := AProjectFile;
 
   try
-    LOutput := ShellExecute('lazbuild', [LProjectFile], LExitCode);
+    if ABuildMode <> '' then
+      LOutput := ShellExecute('lazbuild', ['--bm=' + ABuildMode, LProjectFile], LExitCode)
+    else
+      LOutput := ShellExecute('lazbuild', [LProjectFile], LExitCode);
   except
     on E: Exception do
     begin

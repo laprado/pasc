@@ -12,4 +12,4 @@ Example:
   pasc install
 )
 
-@table( @rowHead( @cell(Next @link(commandnew New Command)) ) )
+@table( @rowHead( @cell(Next @link(commandlicenses Licenses Command)) ) )

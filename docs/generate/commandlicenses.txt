@@ -1,0 +1,23 @@
+@title(Licenses)
+@shorttitle(Licenses)
+
+@section(1 SecFirst Description)
+
+Shows the pasc license (MIT) and the notices of the third-party software, the same text as the LICENSE and THIRD-PARTY-NOTICES.md files of the repository, which are embedded in the executable. So the notices go with pasc even when the executable is copied without the release zip.
+
+The notices list:
+
+@unorderedList(
+  @item(the software included in the executable: pascli, and the Free Pascal and Lazarus units it is compiled with;)
+  @item(the resources embedded in it, like the template of the .gitignore;)
+  @item(the tools pasc runs but does not distribute: Free Pascal, lazbuild, boss, git and PasDoc.)
+)
+
+They also say that the files pasc generates in your projects, like the templates of @link(commandnew pasc new --template), can be used with no restriction and no attribution.
+
+Example:
+@longCode(
+  pasc licenses
+)
+
+@table( @rowHead( @cell(Next @link(commandnew New Command)) ) )

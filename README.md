@@ -74,4 +74,8 @@ Take a look of how pasc works in vscode integrated terminal, you can see also a 
 
 ## License
 
-`pasc` is free and open-source software licensed under the [MIT License](https://github.com/laprado/pasc/blob/main/LICENSE). 
+`pasc` is free and open-source software licensed under the [MIT License](https://github.com/laprado/pasc/blob/main/LICENSE).
+
+The third-party software included in the executable, and the tools pasc runs but does not distribute (Free Pascal, Lazarus, boss, git and PasDoc), are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), which `pasc licenses` also shows.
+
+The files that pasc generates in your projects, such as the templates of `pasc new --template`, are not covered by the pasc license: you can use, change and distribute them with no restriction and no attribution.

@@ -1000,3 +1000,71 @@ LazarusResources.Add('webtestlpr','TXT',[
   +'ation.Title := ''FPCUnit Console test runner'';'#10'  Application.Run;'#10
   +'  Application.Free;'#10'end.'#10
 ]);
+LazarusResources.Add('LICENSE','',[
+  'MIT License'#10#10'Copyright (c) 2022 Leandro Prado'#10#10'Permission is her'
+  +'eby granted, free of charge, to any person obtaining a copy'#10'of this sof'
+  +'tware and associated documentation files (the "Software"), to deal'#10'in t'
+  +'he Software without restriction, including without limitation the rights'#10
+  +'to use, copy, modify, merge, publish, distribute, sublicense, and/or sell'
+  +#10'copies of the Software, and to permit persons to whom the Software is'#10
+  +'furnished to do so, subject to the following conditions:'#10#10'The above c'
+  +'opyright notice and this permission notice shall be included in all'#10'cop'
+  +'ies or substantial portions of the Software.'#10#10'THE SOFTWARE IS PROVIDE'
+  +'D "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR'#10'IMPLIED, INCLUDING '
+  +'BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,'#10'FITNESS FOR A PAR'
+  +'TICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE'#10'AUTHORS OR C'
+  +'OPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER'#10'LIABILITY, W'
+  +'HETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,'#10'OUT O'
+  +'F OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE'#10
+  +'SOFTWARE.'#10
+]);
+LazarusResources.Add('THIRD-PARTY-NOTICES','MD',[
+  '# Third-party notices'#10#10'pasc is licensed under the [MIT License](LICENS'
+  +'E). This file lists the third-party software that is part of the pasc execu'
+  +'table, the resources embedded in it, and the tools pasc runs but does not d'
+  +'istribute. The same text is shown by `pasc licenses`.'#10#10'## Included in'
+  +' the pasc executable'#10#10'### pascli'#10#10'Command line framework used b'
+  +'y every pasc command, installed by boss from https://github.com/laprado/pas'
+  +'cli and compiled into the executable.'#10#10'```'#10'MIT License'#10#10'Cop'
+  +'yright (c) 2022 Leandro Prado'#10#10'Permission is hereby granted, free of '
+  +'charge, to any person obtaining a copy'#10'of this software and associated '
+  +'documentation files (the "Software"), to deal'#10'in the Software without r'
+  +'estriction, including without limitation the rights'#10'to use, copy, modif'
+  +'y, merge, publish, distribute, sublicense, and/or sell'#10'copies of the So'
+  +'ftware, and to permit persons to whom the Software is'#10'furnished to do s'
+  +'o, subject to the following conditions:'#10#10'The above copyright notice a'
+  +'nd this permission notice shall be included in all'#10'copies or substantia'
+  +'l portions of the Software.'#10#10'THE SOFTWARE IS PROVIDED "AS IS", WITHOU'
+  +'T WARRANTY OF ANY KIND, EXPRESS OR'#10'IMPLIED, INCLUDING BUT NOT LIMITED T'
+  +'O THE WARRANTIES OF MERCHANTABILITY,'#10'FITNESS FOR A PARTICULAR PURPOSE A'
+  +'ND NONINFRINGEMENT. IN NO EVENT SHALL THE'#10'AUTHORS OR COPYRIGHT HOLDERS '
+  +'BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER'#10'LIABILITY, WHETHER IN AN ACTI'
+  +'ON OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,'#10'OUT OF OR IN CONNECTIO'
+  +'N WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE'#10'SOFTWARE.'#10'`'
+  +'``'#10#10'### Free Pascal run-time library and packages (RTL, FCL)'#10#10'h'
+  +'ttps://www.freepascal.org. Licensed under the GNU Library General Public Li'
+  +'cense with a static linking exception (`COPYING.FPC` in the Free Pascal sou'
+  +'rces). The exception allows the executable to be distributed under terms ch'
+  +'osen by its authors. pasc uses these units unmodified.'#10#10'### Lazarus L'
+  +'CL and LazUtils'#10#10'https://www.lazarus-ide.org. pasc uses `LResources` '
+  +'(LCL) for its embedded resources and `FileUtil` (LazUtils). Licensed under '
+  +'the modified LGPL with the same static linking exception (`COPYING.modified'
+  +'LGPL.txt` in the Lazarus sources). pasc uses these units unmodified.'#10#10
+  +'## Embedded resources'#10#10'- The `.gitignore` written by `pasc new` start'
+  +'s from the FreePascal template of gitignore.io (https://www.toptal.com/deve'
+  +'lopers/gitignore), as its header says, and adds entries of its own.'#10#10
+  +'## Tools used at run time, not distributed'#10#10'pasc runs these programs '
+  +'when a command needs them. They are installed separately, and nothing of th'
+  +'em is included in pasc.'#10#10'| tool | used by | license |'#10'|---|---|--'
+  +'-|'#10'| [Free Pascal](https://www.freepascal.org) compiler | `build`, `tes'
+  +'t`, through lazbuild | GPL-2.0 |'#10'| [Lazarus](https://www.lazarus-ide.or'
+  +'g) `lazbuild` | `build`, `test`, `watch` | GPL-2.0 (IDE and tools) |'#10'| '
+  +'[boss](https://github.com/HashLoad/boss) | `new`, `deps` | MIT |'#10'| [git'
+  +'](https://git-scm.com) | `new`, `add` | GPL-2.0 |'#10'| [PasDoc](https://gi'
+  +'thub.com/pasdoc/pasdoc) | `docs` | GPL-2.0 |'#10#10'## Files generated by p'
+  +'asc'#10#10'The files that pasc writes into your projects, such as the templ'
+  +'ates of `pasc new --template`, the test projects, the `.lpi`/`.lpr` files, '
+  +'`pasc.json` and the editor settings, are not covered by the pasc license. Y'
+  +'ou can use, change and distribute them with no restriction and no attributi'
+  +'on.'#10
+]);

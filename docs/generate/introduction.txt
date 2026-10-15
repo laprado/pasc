@@ -18,6 +18,7 @@ An interesting feature is the ease with which a new project can be configured to
     @item(@link(commanddocs Docs))
     @item(@link(commandhelp Help))
     @item(@link(commandinstall Install))
+    @item(@link(commandlicenses Licenses))
     @item(@link(commandnew New))
     @item(@link(commandtest Test))
     @item(@link(commandversion Version))

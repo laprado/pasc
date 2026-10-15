@@ -111,7 +111,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/kcov
-        key: kcov-${{ env.KCOV_VERSION }}-${{ runner.os }}-${{ env.ImageOS }}
+        key: kcov-${{ env.KCOV_VERSION }}-ubuntu-24.04-${{ runner.arch }}
 
     - name: Install kcov
       run: |

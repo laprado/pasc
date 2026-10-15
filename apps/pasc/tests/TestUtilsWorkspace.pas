@@ -36,6 +36,7 @@ type
     procedure TestGetModuleSourceDirsSubfolders;
     procedure TestSyncModulePaths;
     procedure TestSyncModulePathsReplacesOldModules;
+    procedure TestGetModulesMissingFromLock;
   end;
 
 implementation
@@ -398,6 +399,25 @@ begin
     '        <PackageName Value="core"/>'));
   AssertEquals('a single section', 1, Length(SplitString(LContent, '<RequiredPackages')) - 1);
   AssertEquals('references count', 1, Length(GetPackageReferences(LApp)));
+end;
+
+procedure TTestUtilsWorkspace.TestGetModulesMissingFromLock;
+var
+  LWorkspaceDir: string;
+  LMissing: TArray<string>;
+begin
+  LWorkspaceDir := ConcatPaths([FWorkingFolder, 'ws']);
+  ForceDirectories(ConcatPaths([LWorkspaceDir, 'modules', 'github_com_a_lib']));
+  // the second module was recorded by an older boss, which names the folder after the repository
+  SaveFileContent(ConcatPaths([LWorkspaceDir, 'boss-lock.json']),
+    '{ "installedModules": {' +
+    ' "github.com/a/lib": { "name": "github_com_a_lib", "version": "1.0.0" },' +
+    ' "github.com/a/other": { "name": "other", "version": "1.0.0" } } }');
+
+  LMissing := GetModulesMissingFromLock(LWorkspaceDir);
+
+  AssertEquals('missing count', 1, Length(LMissing));
+  AssertEquals('other', LMissing[0]);
 end;
 
 initialization

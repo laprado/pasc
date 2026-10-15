@@ -1,6 +1,6 @@
 /// <summary> This unit contains procedures for setting up and executing a watch command 
 /// in the current directory. If there are changes to files in that directory, specified 
-/// commands are executed. </sumamry>
+/// commands are executed. </summary>
 unit Command.Watch;
 
 {$MODE DELPHI}{$H+}

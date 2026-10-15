@@ -15,8 +15,6 @@ lazres ../src/utils/pasc.lrs \
   ./tests/fpcunitprojectlpi.txt \
   ./tests/fpcunitprojectlpr.txt \
   ./tests/testcase1pas.txt \
-  ./docs/buildps1.txt \
-  ./docs/customcss.txt \
   ./docs/introduction.txt \
   ./docs/quickstart.txt \
   ./workspace/pascjson.txt \

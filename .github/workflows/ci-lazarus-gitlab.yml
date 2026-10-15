@@ -43,7 +43,7 @@ jobs:
         path: |
           ${{ matrix.fpc-dir }}
           ${{ matrix.lazarus-dir }}
-        key: toolchain-${{ runner.os }}-fpc-${{ env.FPC_VERSION }}-${{ env.LAZARUS_TAG }}-v3
+        key: toolchain-${{ runner.os }}-fpc-${{ env.FPC_VERSION }}-${{ env.LAZARUS_TAG }}-v2
 
     - name: Install FPC (Linux)
       if: ${{ runner.os == 'Linux' && steps.cache-toolchain.outputs.cache-hit != 'true' }}
@@ -131,9 +131,6 @@ jobs:
         cd "${{ matrix.lazarus-dir }}"
         rm -rf .git docs examples languages images test tools doceditor units
         strip lazbuild* || true
-        # on Windows lazbuild is i386 and everything else targets win64, so after building
-        # lazbuild the i386 units (half of the FPC install) are no longer needed
-        if [ "$RUNNER_OS" = "Windows" ]; then rm -rf "${{ matrix.fpc-dir }}/units/i386-win32"; fi
         du -sh "${{ matrix.lazarus-dir }}" "${{ matrix.fpc-dir }}"
 
     - name: Check lazbuild

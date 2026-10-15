@@ -422,24 +422,6 @@ begin
     StringReplace(GetResource('packageunitpas'), '{PACKAGENAME}', AName, [rfReplaceAll]));
 end;
 
-/// <summary> Returns the value of the --template option from the raw options. pascli resets
-/// the value of an option when another option follows it, so CheckOption is not used for it.
-/// The short form is kept by pascli without its dash: -t=web is t=web. See laprado/pascli#1.
-/// </summary>
-function TemplateOptionValue(ABuilder: ICommandBuilder; out AValue: string): Boolean;
-var
-  LRawOption: string;
-begin
-  Result := False;
-  AValue := '';
-  for LRawOption in ABuilder.GetRawOptions do
-    if StartsText('--template=', LRawOption) or StartsText('t=', LRawOption) then
-    begin
-      AValue := Copy(LRawOption, Pos('=', LRawOption) + 1, Length(LRawOption));
-      Exit(True);
-    end;
-end;
-
 /// <summary> Creates the app from the template, outside a workspace in a new one, and
 /// installs the template dependencies. A failed install keeps the app, which only needs the
 /// dependencies installed again. </summary>
@@ -448,9 +430,6 @@ procedure NewTemplateApp(ABuilder: ICommandBuilder; const AName, ATemplateName: 
 var
   LTemplate: TTemplate;
 begin
-  // pascli does not validate the options not allowed with an option that has a value (pascli#1)
-  if ABuilder.CheckOption('workspace') or ABuilder.CheckOption('package') then
-    raise Exception.Create('The option --template can not be used with --workspace or --package.');
   if Trim(ATemplateName) = '' then
     raise Exception.Create('The option --template requires a template name: ' + GetTemplateNames + '.');
   if not FindTemplate(ATemplateName, LTemplate) then
@@ -498,7 +477,7 @@ begin
   LName := ABuilder.Arguments[0].Value;
   LWorkspaceDir := FindWorkspaceRoot(GetCurrentDir);
   try
-    if TemplateOptionValue(ABuilder, LTemplateName) then
+    if ABuilder.CheckOption('template', LTemplateName) then
     begin
       NewTemplateApp(ABuilder, LName, LTemplateName, LWorkspaceDir);
       Exit;

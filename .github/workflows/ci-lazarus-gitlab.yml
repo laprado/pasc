@@ -1,7 +1,8 @@
 name: build (lazarus from gitlab)
 
-# Test for #24: installs FPC from official sources and builds lazbuild from the
-# Lazarus sources on the freepascal.org GitLab, instead of setup-lazarus and SourceForge.
+# Test for #24: installs FPC from the official downloads.freepascal.org packages and builds
+# lazbuild from the Lazarus sources on the freepascal.org GitLab, instead of setup-lazarus
+# and SourceForge. Both are kept in a single cache.
 on:
   pull_request:
     branches:
@@ -26,43 +27,64 @@ jobs:
       matrix:
         include:
         - operating-system: ubuntu-latest
+          fpc-dir: /home/runner/fpc
           lazarus-dir: /home/runner/lazarus
         - operating-system: windows-latest
-          lazarus-dir: C:/lazarus
           # the installer /DIR replaces its default C:\FPC\<version>, so the version is part of it
           fpc-dir: C:/fpc/3.2.2
+          lazarus-dir: C:/lazarus
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install FPC (Linux)
-      if: ${{ runner.os == 'Linux' }}
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq --no-install-recommends fpc
-        fpc -iV
-
-    - name: Cache FPC (Windows)
-      if: ${{ runner.os == 'Windows' }}
-      id: cache-fpc
+    - name: Cache FPC and Lazarus
+      id: cache-toolchain
       uses: actions/cache@v4
       with:
-        path: ${{ matrix.fpc-dir }}
-        key: fpc-${{ env.FPC_VERSION }}-win32-cross-win64-v2
+        path: |
+          ${{ matrix.fpc-dir }}
+          ${{ matrix.lazarus-dir }}
+        key: toolchain-${{ runner.os }}-fpc-${{ env.FPC_VERSION }}-${{ env.LAZARUS_TAG }}-v1
+
+    - name: Install FPC (Linux)
+      if: ${{ runner.os == 'Linux' && steps.cache-toolchain.outputs.cache-hit != 'true' }}
+      run: |
+        # what install.sh does, without its prompts: the base, units and utils packages,
+        # the compiler link and the fpc.cfg written by samplecfg
+        package="fpc-$FPC_VERSION.x86_64-linux"
+        curl -fsSLO "https://downloads.freepascal.org/fpc/dist/$FPC_VERSION/x86_64-linux/$package.tar"
+        echo "5adac308a5534b6a76446d8311fc340747cbb7edeaacfe6b651493ff3fe31e83  $package.tar" | sha256sum -c -
+        tar xf "$package.tar"
+        mkdir -p binary "${{ matrix.fpc-dir }}/etc"
+        tar xf "$package/binary.x86_64-linux.tar" -C binary
+        for f in binary/base.*.tar.gz binary/units-*.tar.gz binary/utils-*.tar.gz; do
+          tar xzf "$f" -C "${{ matrix.fpc-dir }}"
+        done
+        ln -sf "${{ matrix.fpc-dir }}/lib/fpc/$FPC_VERSION/ppcx64" "${{ matrix.fpc-dir }}/bin/ppcx64"
+        "${{ matrix.fpc-dir }}/lib/fpc/$FPC_VERSION/samplecfg" "${{ matrix.fpc-dir }}/lib/fpc/$FPC_VERSION" "${{ matrix.fpc-dir }}/etc" > /dev/null
+        rm -rf "$package" "$package.tar" binary
 
     - name: Install FPC (Windows)
-      if: ${{ runner.os == 'Windows' && steps.cache-fpc.outputs.cache-hit != 'true' }}
+      if: ${{ runner.os == 'Windows' && steps.cache-toolchain.outputs.cache-hit != 'true' }}
       run: |
         $base = "https://downloads.freepascal.org/fpc/dist/$env:FPC_VERSION/i386-win32"
-        $files = @{
+        $files = [ordered]@{
           "fpc-$env:FPC_VERSION.i386-win32.exe" = "7ec78b1790ecac7685f440b17f9e03865bc09846b7c068a9270c4d37704b5ac8"
           "fpc-$env:FPC_VERSION.i386-win32.cross.x86_64-win64.exe" = "9b4ea18d9c0a613fcc815b78612967a62d539e8c42070299c5c3c2ce8f712768"
         }
-        foreach ($file in @("fpc-$env:FPC_VERSION.i386-win32.exe", "fpc-$env:FPC_VERSION.i386-win32.cross.x86_64-win64.exe")) {
+        foreach ($file in $files.Keys) {
           curl.exe -fsSLO "$base/$file"
           if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $files[$file]) { throw "$file checksum mismatch" }
           # Inno Setup installers
           Start-Process -FilePath ".\$file" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=${{ matrix.fpc-dir }}" -Wait
+          Remove-Item $file
         }
+
+    - name: Add FPC to the path (Linux)
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        echo "${{ matrix.fpc-dir }}/bin" >> "$GITHUB_PATH"
+        # fpc.cfg is in the install folder, not in ~/.fpc.cfg or /etc
+        echo "PPC_CONFIG_PATH=${{ matrix.fpc-dir }}/etc" >> "$GITHUB_ENV"
 
     - name: Add FPC to the path (Windows)
       if: ${{ runner.os == 'Windows' }}
@@ -70,32 +92,36 @@ jobs:
         $fpc = Get-ChildItem -Path "${{ matrix.fpc-dir }}" -Recurse -Filter fpc.exe | Select-Object -First 1
         if (-not $fpc) { Get-ChildItem -Path "${{ matrix.fpc-dir }}" -Depth 2; throw "fpc.exe not found" }
         echo $fpc.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        & $fpc.FullName -iV
 
-    - name: Cache Lazarus
-      id: cache-lazarus
-      uses: actions/cache@v4
-      with:
-        path: ${{ matrix.lazarus-dir }}
-        key: ${{ env.LAZARUS_TAG }}-lazbuild-${{ runner.os }}-fpc-${{ env.FPC_VERSION }}-v1
+    - name: Check FPC
+      run: fpc -iV
 
     - name: Get Lazarus sources
-      if: ${{ steps.cache-lazarus.outputs.cache-hit != 'true' }}
+      if: ${{ steps.cache-toolchain.outputs.cache-hit != 'true' }}
       shell: bash
       run: |
         git clone -q --depth 1 --branch "$LAZARUS_TAG" https://gitlab.com/freepascal.org/lazarus/lazarus.git "${{ matrix.lazarus-dir }}"
         test "$(git -C "${{ matrix.lazarus-dir }}" rev-parse HEAD)" = "$LAZARUS_COMMIT"
 
     - name: Build lazbuild (Linux)
-      if: ${{ runner.os == 'Linux' && steps.cache-lazarus.outputs.cache-hit != 'true' }}
+      if: ${{ runner.os == 'Linux' && steps.cache-toolchain.outputs.cache-hit != 'true' }}
       run: make -C "${{ matrix.lazarus-dir }}" lazbuild
 
     # FPC makefiles detect the shell, so make runs outside Git Bash, with the make.exe of FPC
     - name: Build lazbuild (Windows)
-      if: ${{ runner.os == 'Windows' && steps.cache-lazarus.outputs.cache-hit != 'true' }}
+      if: ${{ runner.os == 'Windows' && steps.cache-toolchain.outputs.cache-hit != 'true' }}
+      run: make -C "${{ matrix.lazarus-dir }}" lazbuild
+
+    # only what lazbuild needs to build projects is cached: the packages in components and lcl
+    # stay, the IDE, docs, examples, translations and the units used to build lazbuild go
+    - name: Prune Lazarus
+      if: ${{ steps.cache-toolchain.outputs.cache-hit != 'true' }}
+      shell: bash
       run: |
-        Get-Command make | Format-List Source
-        make -C "${{ matrix.lazarus-dir }}" lazbuild
+        cd "${{ matrix.lazarus-dir }}"
+        rm -rf .git docs examples languages images test tools doceditor units
+        strip lazbuild* || true
+        du -sh "${{ matrix.lazarus-dir }}" "${{ matrix.fpc-dir }}"
 
     - name: Check lazbuild
       shell: bash

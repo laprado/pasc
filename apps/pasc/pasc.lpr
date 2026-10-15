@@ -12,6 +12,7 @@ uses
   Command.Builder,
   Command.Add,
   Command.Build,
+  Command.Check,
   Command.Clean,
   Command.Colors,
   Command.Deps,
@@ -68,6 +69,7 @@ begin
 
     Command.Add.Registry(PascApp.CommandBuilder);
     Command.Build.Registry(PascApp.CommandBuilder);
+    Command.Check.Registry(PascApp.CommandBuilder);
     Command.Clean.Registry(PascApp.CommandBuilder);
     Command.Deps.Registry(PascApp.CommandBuilder);
     Command.Docs.Registry(PascApp.CommandBuilder);

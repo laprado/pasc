@@ -21,4 +21,4 @@ Without an argument it builds the project in the current folder (the .lpi, the .
 
 The options @html(<code>--debug</code>) and @html(<code>--release</code>) choose the build mode.
 
-@table( @rowHead( @cell(Next @link(commandclean Clean Command)) ) )
+@table( @rowHead( @cell(Next @link(commandcheck Check Command)) ) )

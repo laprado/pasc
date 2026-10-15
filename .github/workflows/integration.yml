@@ -62,8 +62,8 @@ jobs:
     - name: Run the unit test application
       run: apps/pasc/tests/TestPasc "--all" "--format=plain"
 
-    # an app created from each template must build and pass its tests, with the
-    # dependencies installed by pasc new
+    # an app created from each template must pass pasc check, build and pass its tests,
+    # with the dependencies installed by pasc new
     - name: Testing the app templates
       shell: bash
       run: |
@@ -71,5 +71,5 @@ jobs:
         cd "$RUNNER_TEMP"
         for template in cli web; do
           "$pasc" new "${template}app" --template=$template
-          (cd "${template}app" && "$pasc" build && "$pasc" test)
+          (cd "${template}app" && "$pasc" check && "$pasc" build && "$pasc" test)
         done

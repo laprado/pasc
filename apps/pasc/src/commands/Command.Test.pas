@@ -82,7 +82,7 @@ uses
   SysUtils,
   StrUtils,
   Math,
-  Command.Deps,
+  Command.Check,
   Utils.Interfaces,
   Utils.Tests,
   Utils.Leak,
@@ -164,9 +164,9 @@ var
 begin
   LCurrentDir := GetCurrentDir;
   try
+    PrepareWorkspace(ABuilder, AWorkspaceDir);
     for LMember in SortMembersByDependency(GetWorkspaceMembers(AWorkspaceDir)) do
     begin
-      SyncMemberSources(ABuilder, AWorkspaceDir, LMember);
       SetCurrentDir(LMember.Dir);
       if FindTestProject(ABuilder, True) = '' then
       begin

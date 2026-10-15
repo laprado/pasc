@@ -330,18 +330,21 @@ LazarusResources.Add('clilpi','TXT',[
 LazarusResources.Add('clilpr','TXT',[
   'program {APPNAME};'#10#10'{$MODE DELPHI}{$H+}'#10#10'uses'#10'  {$IFDEF UNIX'
   +'}'#10'  cmem,'#10'  cthreads,'#10'  {$ENDIF}'#10'  Command.Interfaces,'#10
-  +'  Command.App,'#10'  Command.Colors,'#10'  Command.Usage,'#10'  Command.Ver'
-  +'sion,'#10'  Command.Greet,'#10'  Command.Count;'#10#10'var'#10'  App: TComm'
-  +'andApp;'#10#10'{$R *.res}'#10#10'begin'#10'  App := TCommandApp.Create(nil)'
-  +';'#10'  try'#10'    App.Title := ''{APPNAME}, a command line tool built wit'
-  +'h pascli.'';'#10'    App.CommandBuilder.UseShortDescriptions := True;'#10' '
-  +'   App.CommandBuilder.ColorTheme := DarkColorTheme;'#10#10'    // help and '
-  +'version come with pascli, each app command registers itself'#10'    Command'
-  +'.Usage.Registry(App.CommandBuilder);'#10'    Command.Version.Registry(App.C'
-  +'ommandBuilder);'#10'    Command.Greet.Registry(App.CommandBuilder);'#10'   '
-  +' Command.Count.Registry(App.CommandBuilder);'#10#10'    App.CommandBuilder.'
-  +'AddArgument(''name to greet'', acOptional);'#10#10'    App.Run;'#10'  final'
-  +'ly'#10'    App.Free;'#10'  end;'#10'end.'#10
+  +'  Command.App,'#10'  Command.Builder,'#10'  Command.Colors,'#10'  Command.U'
+  +'sage,'#10'  Command.Version,'#10'  Command.Greet,'#10'  Command.Count;'#10
+  +#10'var'#10'  App: TCommandApp;'#10#10'{$R *.res}'#10#10'begin'#10'  App := '
+  +'TCommandApp.Create(nil);'#10'  try'#10'    // a fixed name in the help and '
+  +'the examples: the name of the running executable can be'#10'    // the dyna'
+  +'mic loader, as with gcompat on musl'#10'    App.CommandBuilder := TCommandB'
+  +'uilder.Create(''{APPNAME}'');'#10'    App.Title := ''{APPNAME}, a command l'
+  +'ine tool built with pascli.'';'#10'    App.CommandBuilder.UseShortDescripti'
+  +'ons := True;'#10'    App.CommandBuilder.ColorTheme := DarkColorTheme;'#10#10
+  +'    // help and version come with pascli, each app command registers itself'
+  +#10'    Command.Usage.Registry(App.CommandBuilder);'#10'    Command.Version.'
+  +'Registry(App.CommandBuilder);'#10'    Command.Greet.Registry(App.CommandBui'
+  +'lder);'#10'    Command.Count.Registry(App.CommandBuilder);'#10#10'    App.C'
+  +'ommandBuilder.AddArgument(''name to greet'', acOptional);'#10#10'    App.Ru'
+  +'n;'#10'  finally'#10'    App.Free;'#10'  end;'#10'end.'#10
 ]);
 LazarusResources.Add('clitestcommandcount','TXT',[
   'unit TestCommandCount;'#10#10'{$MODE DELPHI}{$H+}'#10#10'interface'#10#10'us'

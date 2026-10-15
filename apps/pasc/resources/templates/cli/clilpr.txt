@@ -9,6 +9,7 @@ uses
   {$ENDIF}
   Command.Interfaces,
   Command.App,
+  Command.Builder,
   Command.Colors,
   Command.Usage,
   Command.Version,
@@ -23,6 +24,9 @@ var
 begin
   App := TCommandApp.Create(nil);
   try
+    // a fixed name in the help and the examples: the name of the running executable can be
+    // the dynamic loader, as with gcompat on musl
+    App.CommandBuilder := TCommandBuilder.Create('{APPNAME}');
     App.Title := '{APPNAME}, a command line tool built with pascli.';
     App.CommandBuilder.UseShortDescriptions := True;
     App.CommandBuilder.ColorTheme := DarkColorTheme;

@@ -9,6 +9,7 @@ uses
   {$ENDIF}
   Command.Interfaces,
   Command.App,
+  Command.Builder,
   Command.Add,
   Command.Build,
   Command.Clean,
@@ -21,6 +22,12 @@ uses
   Command.Usage,
   Command.Version,
   Command.Watch;
+
+const
+  /// <summary> The program name shown in the help, the examples and the version. The name of
+  /// the running executable is not used: with gcompat on musl it is the dynamic loader
+  /// (ld-musl-x86_64.so), and the docs call the program pasc anyway (#38). </summary>
+  PROGRAM_NAME = 'pasc';
 
 var
   PascApp: TCommandApp;
@@ -53,6 +60,7 @@ var
 begin
   PascApp := TCommandApp.Create(nil);
   try
+    PascApp.CommandBuilder := TCommandBuilder.Create(PROGRAM_NAME);
     PascApp.Title := 'Object pascal CLI tool for use with vscode.';
     PascApp.CommandBuilder.UseShortDescriptions := True;
     DarkColorTheme.Title := LightBlue;

@@ -19,5 +19,30 @@ lazres `
   .\docs\quickstart.txt `
   .\workspace\pascjson.txt `
   .\workspace\packagelpk.txt `
-  .\workspace\packageunitpas.txt
+  .\workspace\packageunitpas.txt `
+  .\templates\cli\clicommandcount.txt `
+  .\templates\cli\clicommandgreet.txt `
+  .\templates\cli\clilpi.txt `
+  .\templates\cli\clilpr.txt `
+  .\templates\cli\clitestcommandcount.txt `
+  .\templates\cli\clitestcommandgreet.txt `
+  .\templates\cli\clitestlpi.txt `
+  .\templates\cli\clitestlpr.txt `
+  .\templates\cli\clitestoutput.txt `
+  .\templates\web\webbuild.txt `
+  .\templates\web\webcustomerspayloads.txt `
+  .\templates\web\webcustomersroutes.txt `
+  .\templates\web\webcustomersservice.txt `
+  .\templates\web\webhealthroutes.txt `
+  .\templates\web\weblpi.txt `
+  .\templates\web\weblpr.txt `
+  .\templates\web\webrepoconfig.txt `
+  .\templates\web\webrepocustomers.txt `
+  .\templates\web\webrepomodels.txt `
+  .\templates\web\webshutdown.txt `
+  .\templates\web\webtestcustomerspayloads.txt `
+  .\templates\web\webtestcustomersservice.txt `
+  .\templates\web\webtestfakerepository.txt `
+  .\templates\web\webtestlpi.txt `
+  .\templates\web\webtestlpr.txt
 Set-Location $StartDir

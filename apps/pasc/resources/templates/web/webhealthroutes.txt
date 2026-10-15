@@ -1,0 +1,49 @@
+/// <summary> The health check route, for a load balancer or an orchestrator: 200 while the
+/// server takes requests, 503 once the graceful shutdown started, so no new request is sent to
+/// it while the running ones finish. </summary>
+unit Health.Routes;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+  /// <summary> Registers GET /health in horse. </summary>
+  procedure Registry;
+
+implementation
+
+uses
+  SysUtils,
+  fpjson,
+  Horse,
+  Horse.Commons;
+
+procedure GetHealth(AReq: THorseRequest; ARes: THorseResponse; ANext: TNextProc);
+var
+  LJSON: TJSONObject;
+  LStatus: THTTPStatus;
+begin
+  if THorse.IsShuttingDown then
+  begin
+    LJSON := TJSONObject.Create(['status', 'shutting down']);
+    LStatus := THTTPStatus.ServiceUnavailable;
+  end
+  else
+  begin
+    LJSON := TJSONObject.Create(['status', 'ok', 'activeRequests', THorse.ActiveRequests]);
+    LStatus := THTTPStatus.OK;
+  end;
+
+  try
+    ARes.ContentType('application/json').Send(LJSON.AsJSON).Status(LStatus);
+  finally
+    LJSON.Free;
+  end;
+end;
+
+procedure Registry;
+begin
+  THorse.Get('/health', GetHealth);
+end;
+
+end.

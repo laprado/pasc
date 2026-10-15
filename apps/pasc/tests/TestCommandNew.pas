@@ -41,6 +41,11 @@ type
     procedure TestNewCommandAppRequiresWorkspace;
     procedure TestNewCommandInsideWorkspaceRequiresMemberOption;
     procedure TestNewCommandAppFromWorkspaceSubfolder;
+    procedure TestCreateWorkspaceAppFromTemplate;
+    procedure TestNewCommandTemplateInsideWorkspace;
+    procedure TestNewCommandTemplateRequiresApp;
+    procedure TestNewCommandTemplateUnknown;
+    procedure TestNewCommandTemplateCreatesWorkspace;
   end;
 
 implementation
@@ -53,6 +58,7 @@ uses
   Command.Clean,
   Utils.IO,
   Utils.Shell,
+  Utils.Templates,
   Utils.Workspace;
 
 procedure TTestCommandNew.SetUp;
@@ -80,6 +86,8 @@ procedure TTestCommandNew.TearDown;
 begin
   SetCurrentDir(FCurrentDir);
   AnsweredAll := False;
+  // the command sets the exit code on errors, the test runner should not exit with it
+  ExitCode := 0;
 end;
 
 procedure TTestCommandNew.TestNewCommandRegistry;
@@ -375,6 +383,116 @@ begin
   AssertEquals(
     'each build mode should have its own unit output folder',
     2, Length(SplitString(LContent, '<UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-$(BuildMode)"/>')) - 1);
+end;
+
+procedure TTestCommandNew.TestCreateWorkspaceAppFromTemplate;
+var
+  LWorkspaceDir, LAppDir, LGitIgnore: string;
+  LTemplate: TTemplate;
+begin
+  LWorkspaceDir := CreateEmptyWorkspace(FWorkingFolder);
+  FindTemplate('web', LTemplate);
+  CreateWorkspaceApp(FBuilder, LWorkspaceDir, 'api', LTemplate);
+
+  LAppDir := ConcatPaths([LWorkspaceDir, WORKSPACE_APPS_DIR, 'api']);
+  AssertTrue('api.lpi should exist', FileExists(ConcatPaths([LAppDir, 'api.lpi'])));
+  AssertTrue('the test project should exist', FileExists(ConcatPaths([LAppDir, 'tests', 'Testapi.lpi'])));
+  AssertTrue('the repository should exist', FileExists(ConcatPaths([LAppDir, 'src', 'repo', 'Repo.Config.pas'])));
+  AssertFalse('app should not have its own boss.json', FileExists(ConcatPaths([LAppDir, 'boss.json'])));
+
+  LGitIgnore := GetFileContent(ConcatPaths([LWorkspaceDir, '.gitignore']));
+  AssertTrue('.gitignore should ignore the app executable', ContainsText(LGitIgnore, '/apps/api/api' + LineEnding));
+  AssertTrue('.gitignore should ignore the database', ContainsText(LGitIgnore, '/apps/api/*.db' + LineEnding));
+end;
+
+procedure TTestCommandNew.TestNewCommandTemplateInsideWorkspace;
+var
+  LWorkspaceDir: string;
+begin
+  LWorkspaceDir := CreateEmptyWorkspace(FWorkingFolder);
+  SetCurrentDir(LWorkspaceDir);
+  FBuilder.AddArgument('project file name', acOptional);
+  // an option after --template, which pascli would reset the template value with
+  FBuilder.UseArguments(['new', 'api', '--app', '--template=web', '--verbose']);
+  FBuilder.Parse;
+
+  // boss install is not run, its command line is captured
+  ShellExecute := @MockShell;
+  try
+    NewCommand(FBuilder);
+  finally
+    ShellExecute := @ShellCommand;
+  end;
+
+  AssertTrue(
+    'app should be created from the template. Check: ' + MockOutputCaptured,
+    FileExists(ConcatPaths([LWorkspaceDir, WORKSPACE_APPS_DIR, 'api', 'src', 'Build.pas'])));
+  AssertTrue(
+    'the template dependency should be installed. Check: ' + MockShellCapture,
+    ContainsText(MockShellCapture, 'boss install github.com/HashLoad/horse'));
+  AssertTrue(
+    'should report the app creation. Check: ' + MockOutputCaptured,
+    ContainsText(MockOutputCaptured, 'was created successfully'));
+end;
+
+procedure TTestCommandNew.TestNewCommandTemplateRequiresApp;
+var
+  LWorkspaceDir: string;
+begin
+  LWorkspaceDir := CreateEmptyWorkspace(FWorkingFolder);
+  SetCurrentDir(LWorkspaceDir);
+  FBuilder.AddArgument('project file name', acOptional);
+  FBuilder.UseArguments(['new', 'api', '--template=web']);
+  FBuilder.Parse;
+
+  NewCommand(FBuilder);
+
+  AssertTrue(
+    'Output should suggest --app. Check: ' + MockOutputCaptured,
+    ContainsText(MockOutputCaptured, 'use --app with --template'));
+  AssertFalse('no app should be created', DirectoryExists(ConcatPaths([LWorkspaceDir, WORKSPACE_APPS_DIR, 'api'])));
+end;
+
+procedure TTestCommandNew.TestNewCommandTemplateUnknown;
+begin
+  FBuilder.AddArgument('project file name', acOptional);
+  FBuilder.UseArguments(['new', 'api', '--template=desktop']);
+  FBuilder.Parse;
+
+  NewCommand(FBuilder);
+
+  AssertTrue(
+    'Output should list the templates. Check: ' + MockOutputCaptured,
+    ContainsText(MockOutputCaptured, 'Available templates: cli, web'));
+  AssertFalse('no folder should be created', DirectoryExists(ConcatPaths([FWorkingFolder, 'api'])));
+  AssertEquals('the exit code should be 1', 1, ExitCode);
+end;
+
+procedure TTestCommandNew.TestNewCommandTemplateCreatesWorkspace;
+var
+  LWorkspaceDir: string;
+begin
+  FBuilder.AddArgument('project file name', acOptional);
+  FBuilder.UseArguments(['new', 'tool', '--template=cli']);
+  FBuilder.Parse;
+
+  ShellExecute := @MockShell;
+  try
+    NewCommand(FBuilder);
+  finally
+    ShellExecute := @ShellCommand;
+  end;
+
+  LWorkspaceDir := ConcatPaths([FWorkingFolder, 'tool']);
+  AssertTrue(
+    'a workspace should be created. Check: ' + MockOutputCaptured,
+    FileExists(ConcatPaths([LWorkspaceDir, WORKSPACE_FILE])));
+  AssertTrue(
+    'the app should be in the apps folder of the workspace',
+    FileExists(ConcatPaths([LWorkspaceDir, WORKSPACE_APPS_DIR, 'tool', 'src', 'commands', 'Command.Greet.pas'])));
+  AssertTrue(
+    'the template dependency should be installed. Check: ' + MockShellCapture,
+    ContainsText(MockShellCapture, 'boss install github.com/leandro-lprsoft/pascli'));
 end;
 
 initialization

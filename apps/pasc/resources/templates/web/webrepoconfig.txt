@@ -1,0 +1,76 @@
+/// <summary> The repository access config: the SQLite database file, the connections and the
+/// schema. </summary>
+unit Repo.Config;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  sqldb,
+  sqlite3conn;
+
+const
+  /// <summary> Environment variable with the database file, used instead of the default.
+  /// </summary>
+  DATABASE_ENV = 'DATABASE_FILE';
+
+  /// <summary> Returns the database file: the value of DATABASE_FILE, or {APPNAME}.db next to
+  /// the executable. </summary>
+  function DatabaseFile: string;
+
+  /// <summary> Returns a new connection to the database, with its own transaction. Each request
+  /// uses its own connection, so the requests running in parallel do not share one. The caller
+  /// frees it, which also frees the transaction. </summary>
+  function NewConnection: TSQLite3Connection;
+
+  /// <summary> Creates the tables that do not exist yet. Called once, at the startup. </summary>
+  procedure Migrate;
+
+implementation
+
+uses
+  SysUtils;
+
+function DatabaseFile: string;
+begin
+  Result := GetEnvironmentVariable(DATABASE_ENV);
+  if Result = '' then
+    Result := ConcatPaths([ExtractFilePath(ParamStr(0)), '{APPNAME}.db']);
+end;
+
+function NewConnection: TSQLite3Connection;
+var
+  LTransaction: TSQLTransaction;
+begin
+  Result := TSQLite3Connection.Create(nil);
+  try
+    Result.DatabaseName := DatabaseFile;
+    LTransaction := TSQLTransaction.Create(Result);
+    LTransaction.DataBase := Result;
+    Result.Transaction := LTransaction;
+    Result.Open;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+procedure Migrate;
+var
+  LConnection: TSQLite3Connection;
+begin
+  LConnection := NewConnection;
+  try
+    LConnection.ExecuteDirect(
+      'create table if not exists customers (' +
+      '  id integer primary key autoincrement,' +
+      '  name text not null,' +
+      '  email text not null unique)');
+    LConnection.Transaction.Commit;
+  finally
+    LConnection.Free;
+  end;
+end;
+
+end.

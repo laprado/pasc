@@ -76,4 +76,62 @@ With @html(<code>--workspace</code>) the command creates a @link(workspace works
   pasc new core --package
 )
 
+@section(1 SecThird Templates)
+
+With @html(<code>--template=&lt;name&gt;</code>) the command creates an app from a template. The app comes with example code and a test project, and pasc installs its boss dependencies and updates the search paths, like @link(commanddeps pasc deps). Outside a workspace, the command creates a workspace with the app in apps/<name>. Inside a workspace, add @html(<code>--app</code>) to create the app in its apps folder. Without @html(<code>--template</code>), pasc new works as described above.
+
+@longCode(
+  pasc new mytool --template=cli
+  cd mytool
+  pasc build
+  pasc test
+)
+
+@section(3 SecThird_a cli)
+
+A command line app with @html(<a href="https://github.com/laprado/pascli">pascli</a>), structured like pasc itself: each command in its own unit in src/commands, with a Registry procedure that adds it to the command builder. It comes with two example commands, plus the help and version commands of pascli:
+
+@unorderedList(
+  @item(greet: a command with an argument and an option, @html(<code>greet World --shout</code>))
+  @item(count: a command with an option that requires a value, @html(<code>count --to=5</code>))
+)
+
+The business code of each command is a function apart from the command, so the tests check it directly. They also run the commands with a captured output.
+
+@section(3 SecThird_b web)
+
+A web API with @html(<a href="https://github.com/HashLoad/horse">horse</a>) and SQLite, with an opinionated folder structure:
+
+@preformatted(
+apps/myapi
+├───myapi.lpr            starts the server and waits for the shutdown signal
+├───src
+│   ├───Build.pas        registers the services and the routes
+│   ├───Shutdown.pas     waits for SIGINT/SIGTERM, or Ctrl+C on Windows
+│   ├───features
+│   │   ├───customers    routes, payloads (input and output) and service
+│   │   └───health       GET /health
+│   └───repo             models, SQLite config and repositories
+└───tests                service and payload tests, with a fake repository
+)
+
+@unorderedList(
+  @item(@bold(features): one folder per business name, with its horse routes, its input and output payloads, and the service with the business code.)
+  @item(@bold(dependencies): Build.pas adds a factory for each service to horse Req.Services, so every request gets its own service and repository, freed with the request. horse resolves services by class, so the services and repositories are classes with virtual methods, and the tests replace the repository with a subclass that keeps the data in memory.)
+  @item(@bold(repo): the SQLite database is DATABASE_FILE, or <app>.db next to the executable. The tables are created at the startup.)
+  @item(@bold(graceful shutdown): on SIGINT or SIGTERM, GET /health returns 503 and horse waits up to 5 seconds for the running requests before it stops. The project defines HORSE_DAEMON, so the server runs in its own thread.)
+)
+
+The example feature has the routes GET /customers, GET /customers/:id and POST /customers. The port is PORT, 9000 by default:
+
+@longCode(
+  pasc new myapi --template=web
+  cd myapi
+  pasc build
+  apps/myapi/myapi
+  curl -X POST localhost:9000/customers -d '{"name":"Ana","email":"ana@example.com"}'
+)
+
+The Debug build mode of the web template has no range checks: horse 3.3.14 fails every request when it is built with them.
+
 @table( @rowHead( @cell(Next @link(commandtest Test Command)) ) )

@@ -1,0 +1,42 @@
+program {APPNAME};
+
+{$MODE DELPHI}{$H+}
+
+uses
+  {$IFDEF UNIX}
+  cmem,
+  cthreads,
+  {$ENDIF}
+  Command.Interfaces,
+  Command.App,
+  Command.Colors,
+  Command.Usage,
+  Command.Version,
+  Command.Greet,
+  Command.Count;
+
+var
+  App: TCommandApp;
+
+{$R *.res}
+
+begin
+  App := TCommandApp.Create(nil);
+  try
+    App.Title := '{APPNAME}, a command line tool built with pascli.';
+    App.CommandBuilder.UseShortDescriptions := True;
+    App.CommandBuilder.ColorTheme := DarkColorTheme;
+
+    // help and version come with pascli, each app command registers itself
+    Command.Usage.Registry(App.CommandBuilder);
+    Command.Version.Registry(App.CommandBuilder);
+    Command.Greet.Registry(App.CommandBuilder);
+    Command.Count.Registry(App.CommandBuilder);
+
+    App.CommandBuilder.AddArgument('name to greet', acOptional);
+
+    App.Run;
+  finally
+    App.Free;
+  end;
+end.

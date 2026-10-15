@@ -1,0 +1,77 @@
+unit TestCommandGreet;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  SysUtils,
+  fpcunit,
+  testregistry,
+  Command.Interfaces,
+  Command.Builder;
+
+type
+
+  TTestCommandGreet = class(TTestCase)
+  private
+    FBuilder: ICommandBuilder;
+  protected
+    procedure SetUp; override;
+  published
+    procedure TestGreetMessage;
+    procedure TestGreetMessageShout;
+    procedure TestGreetMessageWithoutName;
+    procedure TestGreetCommand;
+  end;
+
+implementation
+
+uses
+  StrUtils,
+  Command.Greet,
+  TestOutput;
+
+procedure TTestCommandGreet.SetUp;
+begin
+  FBuilder := TCommandBuilder.Create(ExtractFileName(ParamStr(0)));
+  CaptureOutput(FBuilder);
+  Command.Greet.Registry(FBuilder);
+  FBuilder.AddArgument('name to greet', acOptional);
+end;
+
+procedure TTestCommandGreet.TestGreetMessage;
+begin
+  AssertEquals('Hello, World!', GreetMessage(' World ', False));
+end;
+
+procedure TTestCommandGreet.TestGreetMessageShout;
+begin
+  AssertEquals('HELLO, WORLD!', GreetMessage('World', True));
+end;
+
+procedure TTestCommandGreet.TestGreetMessageWithoutName;
+begin
+  try
+    GreetMessage('', False);
+    Fail('an empty name should raise an exception');
+  except
+    on E: EArgumentException do
+      AssertEquals('a name is required', E.Message);
+  end;
+end;
+
+procedure TTestCommandGreet.TestGreetCommand;
+begin
+  FBuilder.UseArguments(['greet', 'World', '--shout']);
+  FBuilder.Parse;
+  FBuilder.Execute;
+
+  AssertTrue('should greet in upper case. Check: ' + OutputCaptured,
+    ContainsStr(OutputCaptured, 'HELLO, WORLD!'));
+end;
+
+initialization
+  RegisterTest(TTestCommandGreet);
+
+end.

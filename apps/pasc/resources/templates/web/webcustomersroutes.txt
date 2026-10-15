@@ -1,0 +1,100 @@
+/// <summary> The routes of the customers feature. Each handler resolves the service from the
+/// request, registered by the Build unit, and turns the business errors into HTTP status codes.
+/// </summary>
+unit Customers.Routes;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+  /// <summary> Registers the customers routes in horse. </summary>
+  procedure Registry;
+
+implementation
+
+uses
+  SysUtils,
+  fpjson,
+  Horse,
+  Horse.Commons,
+  Customers.Payloads,
+  Customers.Service;
+
+function Service(AReq: THorseRequest): TCustomerService;
+begin
+  // created by the factory of the Build unit and freed with the request
+  Result := TCustomerService(AReq.Services.Resolve(TCustomerService));
+end;
+
+procedure SendJSON(ARes: THorseResponse; const AJSON: string; const AStatus: THTTPStatus = THTTPStatus.OK);
+begin
+  ARes.ContentType('application/json').Send(AJSON).Status(AStatus);
+end;
+
+procedure SendError(ARes: THorseResponse; const AMessage: string; const AStatus: THTTPStatus);
+var
+  LError: TJSONObject;
+begin
+  LError := TJSONObject.Create(['error', AMessage]);
+  try
+    SendJSON(ARes, LError.AsJSON, AStatus);
+  finally
+    LError.Free;
+  end;
+end;
+
+procedure SendCustomer(ARes: THorseResponse; const ACustomer: TCustomerOutput; const AStatus: THTTPStatus);
+var
+  LJSON: TJSONObject;
+begin
+  LJSON := ACustomer.ToJSON;
+  try
+    SendJSON(ARes, LJSON.AsJSON, AStatus);
+  finally
+    LJSON.Free;
+  end;
+end;
+
+procedure ListCustomers(AReq: THorseRequest; ARes: THorseResponse; ANext: TNextProc);
+begin
+  SendJSON(ARes, CustomersToJSON(Service(AReq).List));
+end;
+
+procedure GetCustomer(AReq: THorseRequest; ARes: THorseResponse; ANext: TNextProc);
+var
+  LId: Integer;
+begin
+  if not TryStrToInt(AReq.Params['id'], LId) then
+  begin
+    SendError(ARes, 'the id must be a number', THTTPStatus.BadRequest);
+    Exit;
+  end;
+
+  try
+    SendCustomer(ARes, Service(AReq).Get(LId), THTTPStatus.OK);
+  except
+    on E: ECustomerNotFound do
+      SendError(ARes, E.Message, THTTPStatus.NotFound);
+  end;
+end;
+
+procedure AddCustomer(AReq: THorseRequest; ARes: THorseResponse; ANext: TNextProc);
+begin
+  try
+    SendCustomer(ARes, Service(AReq).Add(TCustomerInput.FromJSON(AReq.Body)), THTTPStatus.Created);
+  except
+    on E: EPayloadError do
+      SendError(ARes, E.Message, THTTPStatus.BadRequest);
+    on E: ECustomerInvalid do
+      SendError(ARes, E.Message, THTTPStatus.UnprocessableEntity);
+  end;
+end;
+
+procedure Registry;
+begin
+  THorse.Get('/customers', ListCustomers);
+  THorse.Get('/customers/:id', GetCustomer);
+  THorse.Post('/customers', AddCustomer);
+end;
+
+end.

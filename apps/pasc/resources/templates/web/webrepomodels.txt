@@ -1,0 +1,21 @@
+/// <summary> The models persisted by the repositories, one record per table. </summary>
+unit Repo.Models;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+type
+
+  /// <summary> A row of the customers table. </summary>
+  TCustomer = record
+    Id: Integer;
+    Name: string;
+    Email: string;
+  end;
+
+  TCustomers = TArray<TCustomer>;
+
+implementation
+
+end.

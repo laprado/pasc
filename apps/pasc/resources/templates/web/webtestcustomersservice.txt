@@ -1,0 +1,126 @@
+unit TestCustomersService;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  SysUtils,
+  fpcunit,
+  testregistry,
+  Customers.Payloads,
+  Customers.Service;
+
+type
+
+  TTestCustomersService = class(TTestCase)
+  private
+    FService: TCustomerService;
+    function Input(const AName, AEmail: string): TCustomerInput;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestAdd;
+    procedure TestAddWithoutName;
+    procedure TestAddInvalidEmail;
+    procedure TestAddDuplicatedEmail;
+    procedure TestGet;
+    procedure TestGetNotFound;
+    procedure TestList;
+  end;
+
+implementation
+
+uses
+  FakeCustomerRepository;
+
+procedure TTestCustomersService.SetUp;
+begin
+  // the service owns the fake repository and frees it
+  FService := TCustomerService.Create(TFakeCustomerRepository.Create);
+end;
+
+procedure TTestCustomersService.TearDown;
+begin
+  FService.Free;
+end;
+
+function TTestCustomersService.Input(const AName, AEmail: string): TCustomerInput;
+begin
+  Result.Name := AName;
+  Result.Email := AEmail;
+end;
+
+procedure TTestCustomersService.TestAdd;
+var
+  LCustomer: TCustomerOutput;
+begin
+  LCustomer := FService.Add(Input(' Ana ', 'ana@example.com'));
+  AssertEquals(1, LCustomer.Id);
+  AssertEquals('the name is trimmed', 'Ana', LCustomer.Name);
+  AssertEquals('ana@example.com', LCustomer.Email);
+end;
+
+procedure TTestCustomersService.TestAddWithoutName;
+begin
+  try
+    FService.Add(Input('', 'ana@example.com'));
+    Fail('a customer without name should not be added');
+  except
+    on E: ECustomerInvalid do
+      AssertEquals('the name is required', E.Message);
+  end;
+end;
+
+procedure TTestCustomersService.TestAddInvalidEmail;
+begin
+  try
+    FService.Add(Input('Ana', 'ana'));
+    Fail('a customer with an invalid email should not be added');
+  except
+    on E: ECustomerInvalid do
+      AssertEquals('the email is not valid', E.Message);
+  end;
+end;
+
+procedure TTestCustomersService.TestAddDuplicatedEmail;
+begin
+  FService.Add(Input('Ana', 'ana@example.com'));
+  try
+    FService.Add(Input('Other Ana', 'ana@example.com'));
+    Fail('the email should be unique');
+  except
+    on E: ECustomerInvalid do
+      AssertEquals('there is already a customer with this email', E.Message);
+  end;
+end;
+
+procedure TTestCustomersService.TestGet;
+begin
+  FService.Add(Input('Ana', 'ana@example.com'));
+  AssertEquals('Ana', FService.Get(1).Name);
+end;
+
+procedure TTestCustomersService.TestGetNotFound;
+begin
+  try
+    FService.Get(99);
+    Fail('a missing customer should raise an exception');
+  except
+    on E: ECustomerNotFound do
+      AssertEquals('customer 99 not found', E.Message);
+  end;
+end;
+
+procedure TTestCustomersService.TestList;
+begin
+  FService.Add(Input('Ana', 'ana@example.com'));
+  FService.Add(Input('Bruno', 'bruno@example.com'));
+  AssertEquals(2, Length(FService.List));
+end;
+
+initialization
+  RegisterTest(TTestCustomersService);
+
+end.

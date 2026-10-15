@@ -1,0 +1,71 @@
+/// <summary> A customers repository in memory, so the service tests run without a database.
+/// It overrides the methods of the repository contract, like any other implementation.
+/// </summary>
+unit FakeCustomerRepository;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  Repo.Models,
+  Repo.Customers;
+
+type
+
+  TFakeCustomerRepository = class(TCustomerRepository)
+  private
+    FCustomers: TCustomers;
+  public
+    function All: TCustomers; override;
+    function Find(const AId: Integer; out ACustomer: TCustomer): Boolean; override;
+    function FindByEmail(const AEmail: string; out ACustomer: TCustomer): Boolean; override;
+    function Insert(const ACustomer: TCustomer): TCustomer; override;
+  end;
+
+implementation
+
+uses
+  SysUtils;
+
+function TFakeCustomerRepository.All: TCustomers;
+begin
+  Result := Copy(FCustomers);
+end;
+
+function TFakeCustomerRepository.Find(const AId: Integer; out ACustomer: TCustomer): Boolean;
+var
+  LCustomer: TCustomer;
+begin
+  ACustomer := Default(TCustomer);
+  for LCustomer in FCustomers do
+    if LCustomer.Id = AId then
+    begin
+      ACustomer := LCustomer;
+      Exit(True);
+    end;
+  Result := False;
+end;
+
+function TFakeCustomerRepository.FindByEmail(const AEmail: string; out ACustomer: TCustomer): Boolean;
+var
+  LCustomer: TCustomer;
+begin
+  ACustomer := Default(TCustomer);
+  for LCustomer in FCustomers do
+    if SameText(LCustomer.Email, AEmail) then
+    begin
+      ACustomer := LCustomer;
+      Exit(True);
+    end;
+  Result := False;
+end;
+
+function TFakeCustomerRepository.Insert(const ACustomer: TCustomer): TCustomer;
+begin
+  Result := ACustomer;
+  Result.Id := Length(FCustomers) + 1;
+  FCustomers := FCustomers + [Result];
+end;
+
+end.

@@ -12,8 +12,6 @@ lazres ../src/utils/pasc.lrs \
   ./tasksjson.txt \
   ./projectlpi.txt \
   ./projectlpr.txt \
-  ./update-path-ps1.txt \
-  ./update-path-sh.txt \
   ./tests/fpcunitprojectlpi.txt \
   ./tests/fpcunitprojectlpr.txt \
   ./tests/testcase1pas.txt \

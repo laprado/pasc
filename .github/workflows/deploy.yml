@@ -67,7 +67,15 @@
             merge-multiple: true
             path: assets/
 
+        # sha256sum format, so a manual install can check the zip with sha256sum -c --ignore-missing;
+        # a fixed name, so releases/latest/download/pasc_checksums.txt always works
+        - name: Checksums
+          run: |
+            cd assets
+            sha256sum *.zip > pasc_checksums.txt
+            cat pasc_checksums.txt
+
         - uses: ncipollo/release-action@v1
           with:
-            artifacts: "assets/*.zip"
+            artifacts: "assets/*.zip,assets/pasc_checksums.txt"
             generateReleaseNotes: true

@@ -1,2 +1,0 @@
-source $HOME/.profile
-chmod +x $1

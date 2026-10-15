@@ -169,7 +169,8 @@ begin
   AssertTrue('should count only the sources of the project. Check: ' + MockShellCapture,
     ContainsText(MockShellCapture, 'kcov --include-path=' + ConcatPaths([FProjectDir, 'src']) + ' ' +
     ConcatPaths([FProjectDir, 'coverage', ExtractFileName(FProjectDir)])));
-  AssertTrue('should output the coverage. Check: ' + MockOutputCaptured, ContainsText(MockOutputCaptured, '75.00% (3/4 lines)'));
+  AssertTrue('should output the coverage with the project name. Check: ' + MockOutputCaptured,
+    ContainsText(MockOutputCaptured, 'Coverage ' + ExtractFileName(FProjectDir) + ' 75.00% (3/4 lines)'));
   AssertTrue('should output the coverage of each file', ContainsText(MockOutputCaptured, '3/4  src/hello.pas'));
   AssertTrue('should list the unit that no test uses',
     ContainsText(MockOutputCaptured, 'src/extra.pas (no test uses it)'));

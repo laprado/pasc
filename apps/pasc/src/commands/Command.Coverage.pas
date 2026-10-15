@@ -62,6 +62,16 @@ begin
     ExtractRelativePath(IncludeTrailingPathDelimiter(ABaseDir), AFileName), '\', '/', [rfReplaceAll]);
 end;
 
+/// <summary> The member folder relative to the workspace, or the project folder name outside
+/// of one, where the member is the root itself. </summary>
+function MemberName(const ARootDir, AMemberDir: string): string;
+begin
+  if SameFileName(ExcludeTrailingPathDelimiter(ARootDir), ExcludeTrailingPathDelimiter(AMemberDir)) then
+    Result := ExtractFileName(ExcludeTrailingPathDelimiter(AMemberDir))
+  else
+    Result := DisplayPath(ARootDir, AMemberDir);
+end;
+
 function FormatLines(const ACovered, ATotal: Integer): string;
 begin
   Result := IntToStr(ACovered) + '/' + IntToStr(ATotal);
@@ -255,7 +265,7 @@ begin
   Result.Ran := True;
 
   ABuilder.Output('');
-  OutputInfo(ABuilder, 'Coverage', Format('%s %s (%s lines)', [DisplayPath(ARootDir, AMemberDir),
+  OutputInfo(ABuilder, 'Coverage', Format('%s %s (%s lines)', [MemberName(ARootDir, AMemberDir),
     FormatPercent(CoveragePercent(Result.Report.Covered, Result.Report.Total)),
     FormatLines(Result.Report.Covered, Result.Report.Total)]));
   // the files relative to the member, so the lines fit in the console

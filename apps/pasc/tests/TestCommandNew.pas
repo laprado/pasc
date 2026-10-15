@@ -45,6 +45,7 @@ type
     procedure TestNewCommandTemplateInsideWorkspace;
     procedure TestNewCommandTemplateRequiresApp;
     procedure TestNewCommandTemplateUnknown;
+    procedure TestNewCommandTemplateNotAllowedWithWorkspace;
     procedure TestNewCommandTemplateCreatesWorkspace;
   end;
 
@@ -442,7 +443,8 @@ begin
   LWorkspaceDir := CreateEmptyWorkspace(FWorkingFolder);
   SetCurrentDir(LWorkspaceDir);
   FBuilder.AddArgument('project file name', acOptional);
-  FBuilder.UseArguments(['new', 'api', '--template=web']);
+  // the short form, -t=web
+  FBuilder.UseArguments(['new', 'api', '-t=web']);
   FBuilder.Parse;
 
   NewCommand(FBuilder);
@@ -466,6 +468,21 @@ begin
     ContainsText(MockOutputCaptured, 'Available templates: cli, web'));
   AssertFalse('no folder should be created', DirectoryExists(ConcatPaths([FWorkingFolder, 'api'])));
   AssertEquals('the exit code should be 1', 1, ExitCode);
+end;
+
+procedure TTestCommandNew.TestNewCommandTemplateNotAllowedWithWorkspace;
+var
+  LErrors: TArray<string>;
+begin
+  FBuilder.AddArgument('project file name', acOptional);
+  FBuilder.UseArguments(['new', 'api', '--template=cli', '--workspace']);
+  FBuilder.Parse;
+
+  LErrors := FBuilder.Validate;
+
+  AssertEquals('--template and --workspace should not be accepted together', 1, Length(LErrors));
+  AssertTrue('the error should name both options. Check: ' + LErrors[0],
+    ContainsText(LErrors[0], 'Option "-t" cannot be used with "-w"'));
 end;
 
 procedure TTestCommandNew.TestNewCommandTemplateCreatesWorkspace;
@@ -492,7 +509,7 @@ begin
     FileExists(ConcatPaths([LWorkspaceDir, WORKSPACE_APPS_DIR, 'tool', 'src', 'commands', 'Command.Greet.pas'])));
   AssertTrue(
     'the template dependency should be installed. Check: ' + MockShellCapture,
-    ContainsText(MockShellCapture, 'boss install github.com/leandro-lprsoft/pascli'));
+    ContainsText(MockShellCapture, 'boss install github.com/laprado/pascli'));
 end;
 
 initialization

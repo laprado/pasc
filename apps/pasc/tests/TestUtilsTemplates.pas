@@ -63,7 +63,7 @@ var
 begin
   AssertTrue('CLI should be found', FindTemplate(' CLI ', LTemplate));
   AssertEquals('cli', LTemplate.Name);
-  AssertEquals('github.com/leandro-lprsoft/pascli', LTemplate.Dependencies[0]);
+  AssertEquals('github.com/laprado/pascli', LTemplate.Dependencies[0]);
 end;
 
 procedure TTestUtilsTemplates.TestFindTemplateUnknown;

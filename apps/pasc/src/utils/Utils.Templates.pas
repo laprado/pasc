@@ -73,7 +73,7 @@ function CliTemplate: TTemplate;
 begin
   Result.Name := 'cli';
   Result.Description := 'command line app with pascli';
-  Result.Dependencies := ['github.com/leandro-lprsoft/pascli'];
+  Result.Dependencies := ['github.com/laprado/pascli'];
   Result.Ignore := [];
   Result.Files := [
     TemplateFile('clilpr', '{APPNAME}.lpr'),

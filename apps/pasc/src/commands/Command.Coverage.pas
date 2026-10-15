@@ -54,6 +54,8 @@ type
     Ran: Boolean;
     Failed: Integer;
     Report: TCoverageReport;
+    /// <summary> Why the coverage was not measured, or empty. </summary>
+    Error: string;
   end;
 
 function DisplayPath(const ABaseDir, AFileName: string): string;
@@ -164,6 +166,7 @@ begin
   Result := Default(TMemberCoverage);
   if not SameText(ExtractFileExt(ATestProject), '.lpi') or not FileExists(ATestProject) then
   begin
+    Result.Error := 'the test project needs a .lpi file for the Coverage build mode';
     OutputError(ABuilder, 'Coverage', 'The test project needs a .lpi file for the Coverage build mode: ' +
       DisplayPath(AStartDir, ATestProject));
     Exit;
@@ -176,16 +179,18 @@ begin
   except
     on E: Exception do
     begin
+      Result.Error := E.Message;
       OutputError(ABuilder, 'Coverage', E.Message);
       Exit;
     end;
   end;
 
-  if not BuildTestProject(ABuilder, ATestProject, COVERAGE_BUILD_MODE) then
+  if not BuildTestProject(ABuilder, ATestProject, COVERAGE_BUILD_MODE, Result.Error) then
     Exit;
   LExeFile := GetCoverageExecutable(ATestProject);
   if not FileExists(LExeFile) then
   begin
+    Result.Error := 'the test executable was not found';
     OutputError(ABuilder, 'Coverage', 'Executable test not found: ' + DisplayPath(AStartDir, LExeFile));
     Exit;
   end;
@@ -222,6 +227,7 @@ begin
   except
     on E: Exception do
     begin
+      Result.Error := 'kcov could not be executed';
       OutputError(ABuilder, 'Coverage', 'kcov could not be executed: ' + E.Message);
       Exit;
     end;
@@ -231,6 +237,7 @@ begin
   begin
     ABuilder.Output('Test execution under kcov failed with exit code ' + IntToStr(LExitCode));
     ABuilder.Output('Output from test execution:' + #13#10 + LOutput);
+    Result.Error := 'the tests stopped under kcov with exit code ' + IntToStr(LExitCode);
     Exit;
   end;
 
@@ -249,6 +256,7 @@ begin
     LJsonFile := ConcatPaths([LOutDir, 'kcov-merged', 'coverage.json']);
   if not FileExists(LJsonFile) then
   begin
+    Result.Error := 'kcov did not write the report';
     OutputError(ABuilder, 'Coverage', 'kcov did not write the report in ' + DisplayPath(AStartDir, LOutDir));
     ABuilder.Output(LOutput);
     Exit;
@@ -258,6 +266,7 @@ begin
   except
     on E: Exception do
     begin
+      Result.Error := E.Message;
       OutputError(ABuilder, 'Coverage', E.Message);
       Exit;
     end;
@@ -296,7 +305,8 @@ var
   LTotal: Integer = 0;
   LFailed: Integer = 0;
   LExitCode: Integer = 0;
-  LNotRun: string = '';
+  LNotRun: TArray<string> = [];
+  LLine: string;
   LWithoutTests: string = '';
 begin
   LCurrentDir := GetCurrentDir;
@@ -317,7 +327,7 @@ begin
       LResult := CoverMember(ABuilder, LMember.Dir, LTestProject, AWorkspaceDir, AWorkspaceDir);
       if not LResult.Ran then
       begin
-        LNotRun := LNotRun + IfThen(LNotRun <> '', ', ', '') + LMember.Name;
+        LNotRun := LNotRun + [LMember.Name + IfThen(LResult.Error <> '', ': ' + LResult.Error, '')];
         Continue;
       end;
       Inc(LCovered, LResult.Report.Covered);
@@ -347,8 +357,9 @@ begin
   ABuilder.Output('');
   OutputInfo(ABuilder, 'Workspace', Format('%d members covered: %s (%s lines), %d tests failed.', [
     Length(LReportDirs), FormatPercent(CoveragePercent(LCovered, LTotal)), FormatLines(LCovered, LTotal), LFailed]));
-  if LNotRun <> '' then
-    OutputError(ABuilder, 'Not run', LNotRun);
+  // one line per member, with the reason
+  for LLine in LNotRun do
+    OutputError(ABuilder, 'Not run', LLine);
   if LWithoutTests <> '' then
     OutputInfo(ABuilder, 'No tests', LWithoutTests);
   if (Length(LReportDirs) > 0) and (LExitCode = 0) then
@@ -358,7 +369,7 @@ begin
       OpenReport(ConcatPaths([LCoverageDir, 'index.html']));
   end;
 
-  if (LFailed > 0) or (LNotRun <> '') or not CheckMinimum(ABuilder, AMinimum, LCovered, LTotal) then
+  if (LFailed > 0) or (Length(LNotRun) > 0) or not CheckMinimum(ABuilder, AMinimum, LCovered, LTotal) then
     ExitCode := 1;
 end;
 

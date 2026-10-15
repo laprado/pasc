@@ -1,0 +1,28 @@
+name: Setup boss
+description: >
+  Installs boss 3.0.17, the version used locally, with pinned checksums. Since 3.x it names
+  the module folders like modules/github_com_<user>_<repo>, which the member search paths
+  point to, so the CI must not use an older boss.
+
+runs:
+  using: composite
+  steps:
+  - name: Install boss (Linux)
+    if: ${{ runner.os == 'Linux' }}
+    shell: bash
+    run: |
+      curl -fsSLO https://github.com/HashLoad/boss/releases/download/v3.0.17/boss_Linux_x86_64.tar.gz
+      echo "c40ec124f4f2563b6c873dbeeba2dfad6b80b644a0f765a7291bd9efd0b21e3e  boss_Linux_x86_64.tar.gz" | sha256sum -c -
+      mkdir -p "$RUNNER_TEMP/boss" && tar xzf boss_Linux_x86_64.tar.gz -C "$RUNNER_TEMP/boss"
+      rm boss_Linux_x86_64.tar.gz
+      echo "$RUNNER_TEMP/boss" >> "$GITHUB_PATH"
+
+  - name: Install boss (Windows)
+    if: ${{ runner.os == 'Windows' }}
+    shell: pwsh
+    run: |
+      curl.exe -fsSLO https://github.com/HashLoad/boss/releases/download/v3.0.17/boss_Windows_x86_64.zip
+      if ((Get-FileHash boss_Windows_x86_64.zip -Algorithm SHA256).Hash -ne "aac660435608a9e6a4a05eb9ee9a2c4a0a6156d5efe6e48f48fa1227006cda5d") { throw "boss checksum mismatch" }
+      Expand-Archive boss_Windows_x86_64.zip -DestinationPath (Join-Path $env:RUNNER_TEMP "boss")
+      Remove-Item boss_Windows_x86_64.zip
+      echo (Join-Path $env:RUNNER_TEMP "boss") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append

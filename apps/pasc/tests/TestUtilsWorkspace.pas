@@ -36,6 +36,9 @@ type
     procedure TestGetModuleSourceDirsSubfolders;
     procedure TestSyncModulePaths;
     procedure TestSyncModulePathsReplacesOldModules;
+    procedure TestGetMemberSourceDirs;
+    procedure TestAddSourcePaths;
+    procedure TestAddSourcePathsTestProject;
     procedure TestGetModulesMissingFromLock;
   end;
 
@@ -368,6 +371,79 @@ begin
     'old module path should be replaced. Check: ' + GetFileContent(LApp),
     ContainsText(GetFileContent(LApp),
       '<OtherUnitFiles Value="src;modules/.dcu;../../modules/github_com_new"/>'));
+end;
+
+procedure TTestUtilsWorkspace.TestGetMemberSourceDirs;
+var
+  LAppDir: string;
+  LDirs: TArray<string>;
+begin
+  LAppDir := ExtractFileDir(CreateApp('server'));
+  ForceDirectories(ConcatPaths([LAppDir, 'src', 'features', 'issues']));
+  ForceDirectories(ConcatPaths([LAppDir, 'src', 'features', 'empty']));
+  ForceDirectories(ConcatPaths([LAppDir, 'src', 'backup']));
+  ForceDirectories(ConcatPaths([LAppDir, 'src', 'lib']));
+  SaveFileContent(ConcatPaths([LAppDir, 'src', 'Build.pas']), 'unit Build;');
+  SaveFileContent(ConcatPaths([LAppDir, 'src', 'features', 'issues', 'Issues.Routes.pas']), 'unit Issues.Routes;');
+  SaveFileContent(ConcatPaths([LAppDir, 'src', 'backup', 'Build.pas']), 'unit Build;');
+  SaveFileContent(ConcatPaths([LAppDir, 'src', 'lib', 'Build.inc']), '');
+
+  LDirs := GetMemberSourceDirs(LAppDir);
+
+  AssertEquals('src and the folder with units, without backup, lib or empty folders', 2, Length(LDirs));
+  AssertEquals(ConcatPaths([LAppDir, 'src']), LDirs[0]);
+  AssertEquals(ConcatPaths([LAppDir, 'src', 'features', 'issues']), LDirs[1]);
+  AssertEquals('a member without src has no source folders', 0,
+    Length(GetMemberSourceDirs(ConcatPaths([FWorkingFolder, 'ws', 'packages']))));
+end;
+
+procedure TTestUtilsWorkspace.TestAddSourcePaths;
+var
+  LApp, LAppDir, LContent: string;
+begin
+  LApp := CreateApp('server');
+  LAppDir := ExtractFileDir(LApp);
+  // two build modes, one of them with Windows separators
+  SaveFileContent(LApp, StringReplace(GetFileContent(LApp), '    <Units>',
+    '    <SearchPaths>' + LineEnding +
+    '      <OtherUnitFiles Value="src;src\features\health;$(LazarusDir)/x"/>' + LineEnding +
+    '    </SearchPaths>' + LineEnding +
+    '    <SearchPaths>' + LineEnding +
+    '      <OtherUnitFiles Value="src/features/health;src"/>' + LineEnding +
+    '    </SearchPaths>' + LineEnding +
+    '    <Units>', []));
+
+  AssertTrue('file should be changed', AddSourcePaths(LApp, [
+    ConcatPaths([LAppDir, 'src']),
+    ConcatPaths([LAppDir, 'src', 'features', 'health']),
+    ConcatPaths([LAppDir, 'src', 'features', 'issues'])]));
+
+  LContent := GetFileContent(LApp);
+  AssertTrue('the missing folder should be added to the first mode, keeping the others. Check: ' + LContent,
+    ContainsText(LContent, '<OtherUnitFiles Value="src;src\features\health;$(LazarusDir)/x;src/features/issues"/>'));
+  AssertTrue('the missing folder should be added to the second mode. Check: ' + LContent,
+    ContainsText(LContent, '<OtherUnitFiles Value="src/features/health;src;src/features/issues"/>'));
+  AssertFalse('a second call should not change the file',
+    AddSourcePaths(LApp, [ConcatPaths([LAppDir, 'src', 'features', 'issues'])]));
+end;
+
+procedure TTestUtilsWorkspace.TestAddSourcePathsTestProject;
+var
+  LApp, LAppDir, LTestProject: string;
+begin
+  LApp := CreateApp('server');
+  LAppDir := ExtractFileDir(LApp);
+  ForceDirectories(ConcatPaths([LAppDir, 'tests']));
+  LTestProject := ConcatPaths([LAppDir, 'tests', 'Testserver.lpi']);
+  SaveFileContent(LTestProject,
+    '<CONFIG><CompilerOptions><SearchPaths>' + LineEnding +
+    '  <OtherUnitFiles Value="../src"/>' + LineEnding +
+    '</SearchPaths></CompilerOptions></CONFIG>');
+
+  AddSourcePaths(LTestProject, [ConcatPaths([LAppDir, 'src']), ConcatPaths([LAppDir, 'src', 'repo'])]);
+
+  AssertTrue('the folder should be relative to the test project. Check: ' + GetFileContent(LTestProject),
+    ContainsText(GetFileContent(LTestProject), '<OtherUnitFiles Value="../src;../src/repo"/>'));
 end;
 
 procedure TTestUtilsWorkspace.TestAddPackageReferenceNumberedItems;

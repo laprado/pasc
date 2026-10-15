@@ -5,6 +5,8 @@
 
 Installs the boss dependencies of a @link(workspace workspace). It runs boss install at the workspace root, even when called inside a member, so the whole workspace has a single boss.json and modules folder. Then it writes the source folders of the installed modules (the "mainsrc" of each one, searched like boss does) to the search paths of every member and test project, relative to each one.
 
+The folders under src of each app that have Pascal units, like the src/features/<name> folders of the web template, are added to the search paths of the app, in every build mode, and of its test project, since FPC does not search the unit folders recursively. pasc build and pasc test do the same in a workspace before building each member, so a new folder never fails with "Can't find unit". Existing paths are kept, and packages, whose units are listed in the .lpk, are not changed.
+
 Example, to add a dependency:
 @longCode(
   pasc deps github.com/user/repo

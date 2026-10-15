@@ -38,7 +38,7 @@ At the root of the workspace @code(pasc build) builds every member, packages bef
 
 @section(1 SecFifth Dependencies)
 
-@code(pasc deps) runs boss install at the root, even inside a member, and writes the module folders to the search paths of every member, relative to each one; see @link(commanddeps Deps Command). Use the same boss version everywhere: the module folder names depend on it.
+@code(pasc deps) runs boss install at the root, even inside a member, and writes the module folders to the search paths of every member, relative to each one; see @link(commanddeps Deps Command). It, @code(pasc build) and @code(pasc test) also add the folders with units under src of each app to its search paths and to those of its test project. Use the same boss version everywhere: the module folder names depend on it.
 
 A library used by other repositories through boss must stay in its own repository, since boss versions by repository tag. Code used only inside the workspace goes to packages.
 

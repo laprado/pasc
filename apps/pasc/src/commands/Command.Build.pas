@@ -45,6 +45,7 @@ uses
   StrUtils,
   Math,
   Command.Colors,
+  Command.Deps,
   Utils.Output,
   Utils.Shell,
   Utils.Workspace;
@@ -147,6 +148,7 @@ begin
 
   for LMember in LMembers do
   begin
+    SyncMemberSources(ABuilder, AWorkspaceDir, LMember);
     OutputInfo(ABuilder, 'Building', ExtractRelativePath(
       IncludeTrailingPathDelimiter(AWorkspaceDir), LMember.ProjectFile));
     if not BuildProject(ABuilder, LMember.ProjectFile) then

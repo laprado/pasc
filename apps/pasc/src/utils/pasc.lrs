@@ -294,7 +294,7 @@ LazarusResources.Add('clilpi','TXT',[
   +'lue="11"/>'#10'          <PathDelim Value="\"/>'#10'          <Target>'#10
   +'            <Filename Value="{APPNAME}"/>'#10'          </Target>'#10'     '
   +'     <SearchPaths>'#10'            <IncludeFiles Value="$(ProjOutDir)"/>'#10
-  +'            <OtherUnitFiles Value="src;src\commands"/>'#10'            <Uni'
+  +'            <OtherUnitFiles Value="src;src/commands"/>'#10'            <Uni'
   +'tOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-$(BuildMode)"/>'#10'  '
   +'        </SearchPaths>'#10'          <CodeGeneration>'#10'            <Smar'
   +'tLinkUnit Value="True"/>'#10'            <Optimizations>'#10'              '
@@ -311,7 +311,7 @@ LazarusResources.Add('clilpi','TXT',[
   +'  <CompilerOptions>'#10'    <Version Value="11"/>'#10'    <PathDelim Value='
   +'"\"/>'#10'    <Target>'#10'      <Filename Value="{APPNAME}"/>'#10'    </Ta'
   +'rget>'#10'    <SearchPaths>'#10'      <IncludeFiles Value="$(ProjOutDir)"/>'
-  +#10'      <OtherUnitFiles Value="src;src\commands"/>'#10'      <UnitOutputDi'
+  +#10'      <OtherUnitFiles Value="src;src/commands"/>'#10'      <UnitOutputDi'
   +'rectory Value="lib\$(TargetCPU)-$(TargetOS)-$(BuildMode)"/>'#10'    </Searc'
   +'hPaths>'#10'    <Parsing>'#10'      <SyntaxOptions>'#10'        <IncludeAss'
   +'ertionCode Value="True"/>'#10'      </SyntaxOptions>'#10'    </Parsing>'#10
@@ -485,19 +485,21 @@ LazarusResources.Add('webbuild','TXT',[
   +'quest gets its own'#10'/// services through horse Req.Services: a middlewar'
   +'e adds a factory for each service, which'#10'/// creates it, with its repos'
   +'itory, only when a route resolves it, and frees it with the'#10'/// request'
-  +'. To add a feature, register its service factory and its routes here.'#10'/'
-  +'// </summary>'#10'unit Build;'#10#10'{$MODE DELPHI}{$H+}'#10#10'interface'
-  +#10#10'  /// <summary> Registers the services middleware and the routes of e'
-  +'very feature. </summary>'#10'  procedure Configure;'#10#10'implementation'
-  +#10#10'uses'#10'  Horse,'#10'  Repo.Customers,'#10'  Customers.Service,'#10
-  +'  Customers.Routes,'#10'  Health.Routes;'#10#10'function NewCustomerService'
-  +': TObject;'#10'begin'#10'  Result := TCustomerService.Create(TSQLiteCustome'
-  +'rRepository.Create);'#10'end;'#10#10'procedure Services(AReq: THorseRequest'
-  +'; ARes: THorseResponse; ANext: TNextProc);'#10'begin'#10'  AReq.Services.Ad'
-  +'dFactory(TCustomerService, NewCustomerService);'#10'  ANext();'#10'end;'#10
-  +#10'procedure Configure;'#10'begin'#10'  THorse.Use(Services);'#10#10'  Heal'
-  +'th.Routes.Registry;'#10'  Customers.Routes.Registry;'#10'end;'#10#10'end.'
-  +#10
+  +'. To add a feature, create its folder in src/features and register its serv'
+  +'ice'#10'/// factory and its routes here; pasc build, pasc test and pasc dep'
+  +'s add the new folder to the'#10'/// search paths of the app and of its test'
+  +' project.'#10'/// </summary>'#10'unit Build;'#10#10'{$MODE DELPHI}{$H+}'#10
+  +#10'interface'#10#10'  /// <summary> Registers the services middleware and t'
+  +'he routes of every feature. </summary>'#10'  procedure Configure;'#10#10'im'
+  +'plementation'#10#10'uses'#10'  Horse,'#10'  Repo.Customers,'#10'  Customers'
+  +'.Service,'#10'  Customers.Routes,'#10'  Health.Routes;'#10#10'function NewC'
+  +'ustomerService: TObject;'#10'begin'#10'  Result := TCustomerService.Create('
+  +'TSQLiteCustomerRepository.Create);'#10'end;'#10#10'procedure Services(AReq:'
+  +' THorseRequest; ARes: THorseResponse; ANext: TNextProc);'#10'begin'#10'  AR'
+  +'eq.Services.AddFactory(TCustomerService, NewCustomerService);'#10'  ANext()'
+  +';'#10'end;'#10#10'procedure Configure;'#10'begin'#10'  THorse.Use(Services)'
+  +';'#10#10'  Health.Routes.Registry;'#10'  Customers.Routes.Registry;'#10'end'
+  +';'#10#10'end.'#10
 ]);
 LazarusResources.Add('webcustomerspayloads','TXT',[
   '/// <summary> The payloads of the customers routes: what a request sends (in'
@@ -658,8 +660,8 @@ LazarusResources.Add('weblpi','TXT',[
   +'lue="11"/>'#10'          <PathDelim Value="\"/>'#10'          <Target>'#10
   +'            <Filename Value="{APPNAME}"/>'#10'          </Target>'#10'     '
   +'     <SearchPaths>'#10'            <IncludeFiles Value="$(ProjOutDir)"/>'#10
-  +'            <OtherUnitFiles Value="src;src\features\customers;src\features\'
-  +'health;src\repo"/>'#10'            <UnitOutputDirectory Value="lib\$(Target'
+  +'            <OtherUnitFiles Value="src;src/features/customers;src/features/'
+  +'health;src/repo"/>'#10'            <UnitOutputDirectory Value="lib\$(Target'
   +'CPU)-$(TargetOS)-$(BuildMode)"/>'#10'          </SearchPaths>'#10'         '
   +' <CodeGeneration>'#10'            <SmartLinkUnit Value="True"/>'#10'       '
   +'     <Optimizations>'#10'              <OptimizationLevel Value="3"/>'#10' '
@@ -677,8 +679,8 @@ LazarusResources.Add('weblpi','TXT',[
   +'mpilerOptions>'#10'    <Version Value="11"/>'#10'    <PathDelim Value="\"/>'
   +#10'    <Target>'#10'      <Filename Value="{APPNAME}"/>'#10'    </Target>'
   +#10'    <SearchPaths>'#10'      <IncludeFiles Value="$(ProjOutDir)"/>'#10'  '
-  +'    <OtherUnitFiles Value="src;src\features\customers;src\features\health;s'
-  +'rc\repo"/>'#10'      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetO'
+  +'    <OtherUnitFiles Value="src;src/features/customers;src/features/health;s'
+  +'rc/repo"/>'#10'      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetO'
   +'S)-$(BuildMode)"/>'#10'    </SearchPaths>'#10'    <Parsing>'#10'      <Synt'
   +'axOptions>'#10'        <IncludeAssertionCode Value="True"/>'#10'      </Syn'
   +'taxOptions>'#10'    </Parsing>'#10'    <CodeGeneration>'#10'      <Checks>'
@@ -971,16 +973,16 @@ LazarusResources.Add('webtestlpi','TXT',[
   +'erOptions>'#10'    <Version Value="11"/>'#10'    <PathDelim Value="\"/>'#10
   +'    <Target>'#10'      <Filename Value="Test{APPNAME}"/>'#10'    </Target>'
   +#10'    <SearchPaths>'#10'      <IncludeFiles Value="$(ProjOutDir)"/>'#10'  '
-  +'    <OtherUnitFiles Value="../src;../src/features/customers;../src/repo"/>'
-  +#10'      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>'#10'  '
-  +'  </SearchPaths>'#10'    <Linking>'#10'      <Debugging>'#10'        <Debug'
-  +'InfoType Value="dsDwarf3"/>'#10'        <UseHeaptrc Value="True"/>'#10'    '
-  +'  </Debugging>'#10'    </Linking>'#10'  </CompilerOptions>'#10'  <Debugging'
-  +'>'#10'    <Exceptions>'#10'      <Item>'#10'        <Name Value="EAbort"/>'
-  +#10'      </Item>'#10'      <Item>'#10'        <Name Value="ECodetoolError"/'
-  +'>'#10'      </Item>'#10'      <Item>'#10'        <Name Value="EFOpenError"/'
-  +'>'#10'      </Item>'#10'    </Exceptions>'#10'  </Debugging>'#10'</CONFIG>'
-  +#10
+  +'    <OtherUnitFiles Value="../src;../src/features/customers;../src/features'
+  +'/health;../src/repo"/>'#10'      <UnitOutputDirectory Value="lib\$(TargetCP'
+  +'U)-$(TargetOS)"/>'#10'    </SearchPaths>'#10'    <Linking>'#10'      <Debug'
+  +'ging>'#10'        <DebugInfoType Value="dsDwarf3"/>'#10'        <UseHeaptrc'
+  +' Value="True"/>'#10'      </Debugging>'#10'    </Linking>'#10'  </CompilerO'
+  +'ptions>'#10'  <Debugging>'#10'    <Exceptions>'#10'      <Item>'#10'       '
+  +' <Name Value="EAbort"/>'#10'      </Item>'#10'      <Item>'#10'        <Nam'
+  +'e Value="ECodetoolError"/>'#10'      </Item>'#10'      <Item>'#10'        <'
+  +'Name Value="EFOpenError"/>'#10'      </Item>'#10'    </Exceptions>'#10'  </'
+  +'Debugging>'#10'</CONFIG>'#10
 ]);
 LazarusResources.Add('webtestlpr','TXT',[
   'program Test{APPNAME};'#10#10'{$mode objfpc}{$H+}'#10#10'uses'#10'  Classes,'

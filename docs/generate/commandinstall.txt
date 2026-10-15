@@ -3,13 +3,13 @@
 
 @section(1 SecFirst Description)
 
-Installs pasc in the user's home folder, for that it creates a subfolder called .pasc and copies the executable itself to that folder. Also, add the new folder to the path environment variable so that you can call pasc from any folder.
+@bold(Deprecated.) Up to version 1.2.1 this command copied pasc to a .pasc folder in the user's home and added it to the PATH. That was unreliable, so it no longer changes anything: it shows how to install pasc with a package manager, manually or from the sources (see @link(install Install)), and, when it finds an install made by a previous version, the steps to remove it: the ~/.pasc folder and its PATH entry in ~/.profile, /etc/paths or the Windows user PATH.
 
-@note(It is recommended to restart our terminal session for the addition to the path to take effect. For MacOS you need to use elevation before running this command.)
+It exits with code 1, since nothing is installed.
 
 Example:
 @longCode(
-  ./pasc install
+  pasc install
 )
 
 @table( @rowHead( @cell(Next @link(commandnew New Command)) ) )

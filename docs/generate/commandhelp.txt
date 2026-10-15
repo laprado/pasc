@@ -17,4 +17,6 @@ Example to get help for new command:
   pasc help new
 )
 
+The options @html(<code>--help</code>) and @code(-h) do the same: @html(<code>pasc --help</code>) shows the general usage, and @code(pasc build -h) the help of a command.
+
 @table( @rowHead( @cell(Next @link(commandinstall Install Command)) ) )

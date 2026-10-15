@@ -1,0 +1,17 @@
+@title(Deps)
+@shorttitle(Deps)
+
+@section(1 SecFirst Description)
+
+Installs the boss dependencies of a @link(workspace workspace). It runs boss install at the workspace root, even when called inside a member, so the whole workspace has a single boss.json and modules folder. Then it writes the source folders of the installed modules (the "mainsrc" of each one, searched like boss does) to the search paths of every member and test project, relative to each one.
+
+Example, to add a dependency:
+@longCode(
+  pasc deps github.com/user/repo
+)
+
+Without an argument it installs the dependencies already in boss.json. The option @html(<code>--verbose</code>) shows the boss output as is.
+
+@note(The module folder names depend on the boss version: boss 3.x uses github_com_user_repo, older versions the repository name. Use the same boss version locally and in the CI. pasc warns when boss-lock.json records folders that are not in modules.)
+
+@table( @rowHead( @cell(Next @link(commanddocs Docs Command)) ) )

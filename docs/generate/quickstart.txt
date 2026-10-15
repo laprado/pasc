@@ -63,4 +63,4 @@ Some predefined tasks were created but only the build and launch for debug shoul
 
 Testing and documentation tasks require the existence of test projects and scripts for documentation automation that can be added by pasc via the add --tests --docs command. See the @link(commandadd Add Command) section on how to add tests and documentation to the project.
 
-@table( @rowHead( @cell(Next @link(commandadd Add Command)) ) )
+@table( @rowHead( @cell(Next @link(workspace Workspace)) ) )

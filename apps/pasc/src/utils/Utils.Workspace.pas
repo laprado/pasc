@@ -93,6 +93,14 @@ type
   /// <param name="AMemberDir"> Member folder. </param>
   function GetMemberTestProject(const AMemberDir: string): string;
 
+  /// <summary> Returns the module folders recorded in boss-lock.json that are not in the
+  /// workspace modules folder. The folder name depends on the boss version (3.x uses
+  /// github_com_user_repo, older versions the repository name), so a difference means the lock
+  /// was written by another boss version, and the search paths synced from this machine do not
+  /// match it. Returns empty without a lock or a modules folder. </summary>
+  /// <param name="AWorkspaceDir"> Workspace root folder. </param>
+  function GetModulesMissingFromLock(const AWorkspaceDir: string): TArray<string>;
+
 implementation
 
 uses
@@ -582,6 +590,37 @@ begin
 
   if Result then
     SaveFileContent(AProjectFile, LContent);
+end;
+
+function GetModulesMissingFromLock(const AWorkspaceDir: string): TArray<string>;
+var
+  LLockFile, LModulesDir, LName: string;
+  LJson: TJSONData;
+  LModules: TJSONObject;
+  I: Integer;
+begin
+  Result := [];
+  LLockFile := ConcatPaths([AWorkspaceDir, 'boss-lock.json']);
+  LModulesDir := ConcatPaths([AWorkspaceDir, 'modules']);
+  if not FileExists(LLockFile) or not DirectoryExists(LModulesDir) then
+    Exit;
+
+  LJson := GetJSON(GetFileContent(LLockFile));
+  try
+    if not (LJson is TJSONObject) or not (TJSONObject(LJson).Find('installedModules') is TJSONObject) then
+      Exit;
+    LModules := TJSONObject(TJSONObject(LJson).Find('installedModules'));
+    for I := 0 to LModules.Count - 1 do
+    begin
+      if not (LModules.Items[I] is TJSONObject) then
+        Continue;
+      LName := TJSONObject(LModules.Items[I]).Get('name', '');
+      if (LName <> '') and not DirectoryExists(ConcatPaths([LModulesDir, LName])) then
+        Result := Result + [LName];
+    end;
+  finally
+    LJson.Free;
+  end;
 end;
 
 function GetMemberTestProject(const AMemberDir: string): string;

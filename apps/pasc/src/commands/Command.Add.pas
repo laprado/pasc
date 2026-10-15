@@ -235,6 +235,8 @@ begin
   for LReference in LPlan.References do
     OutputInfo(ABuilder, 'Reference', ExtractFileName(LReference.ProjectFile) + ' will require ' +
       LReference.PackageName + ' by relative path');
+  if Length(LPlan.Leftovers) > 0 then
+    OutputInfo(ABuilder, 'Remove', 'build output of the previous layout: ' + string.Join(', ', LPlan.Leftovers));
   if Length(LPlan.LeftAtRoot) > 0 then
     OutputInfo(ABuilder, 'Root', 'stays at the root, review: ' + string.Join(', ', LPlan.LeftAtRoot));
   for LText in LPlan.Warnings do

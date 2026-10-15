@@ -31,6 +31,7 @@ type
     procedure TestAnalyzePlainApp;
     procedure TestApplyApp;
     procedure TestApplyMultiProject;
+    procedure TestAppLeftovers;
   end;
 
 implementation
@@ -338,6 +339,39 @@ begin
       '        <PackageName Value="core"/>' + LineEnding +
       '        <DefaultFilename Value="../core/core.lpk" Prefer="True"/>'));
   AssertTrue('nothing is moved', FileExists(ConcatPaths([FRoot, 'core', 'core.lpk'])));
+end;
+
+procedure TTestUtilsAdopt.TestAppLeftovers;
+var
+  LPlan: TAdoptPlan;
+begin
+  CreateApp('cli', True);
+  // a previous build at the root: ignored by git, so the working tree is clean
+  SaveFileContent(ConcatPaths([FRoot, '.gitignore']),
+    GetFileContent(ConcatPaths([FRoot, '.gitignore'])) + 'lib/' + LineEnding + 'backup/' + LineEnding);
+  Commit;
+  SaveFileContent(ConcatPaths([FRoot, 'cli']), 'executable');
+  ForceDirectories(ConcatPaths([FRoot, 'lib', 'x86_64-linux']));
+  SaveFileContent(ConcatPaths([FRoot, 'lib', 'x86_64-linux', 'cli.o']), 'object');
+  ForceDirectories(ConcatPaths([FRoot, 'backup']));
+  SaveFileContent(ConcatPaths([FRoot, 'backup', 'cli.lpr']), 'program cli;');
+
+  LPlan := AnalyzeAdoption(FRoot, False);
+
+  AssertTrue('kind. Check: ' + LPlan.Reason, LPlan.Kind = akApp);
+  AssertTrue('the executable is a leftover', AnsiMatchText('cli', LPlan.Leftovers));
+  AssertTrue('lib is a leftover', AnsiMatchText('lib', LPlan.Leftovers));
+  AssertFalse('backup is not removed', AnsiMatchText('backup', LPlan.Leftovers));
+  AssertTrue(
+    'backup is reported',
+    ContainsText(string.Join(' ', LPlan.Warnings), 'backup has the Lazarus IDE backup copies'));
+
+  ApplyAdoption(LPlan);
+
+  AssertFalse('the executable was removed', FileExists(ConcatPaths([FRoot, 'cli'])));
+  AssertFalse('lib was removed', DirectoryExists(ConcatPaths([FRoot, 'lib'])));
+  AssertTrue('backup was kept', FileExists(ConcatPaths([FRoot, 'backup', 'cli.lpr'])));
+  AssertTrue('the app moved', FileExists(ConcatPaths([FRoot, 'apps', 'cli', 'cli.lpi'])));
 end;
 
 initialization

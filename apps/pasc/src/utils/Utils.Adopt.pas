@@ -60,6 +60,10 @@ type
     References: TArray<TAdoptReference>;
     /// <summary> Root entries that are not part of the app and stay at the root. </summary>
     LeftAtRoot: TArray<string>;
+    /// <summary> Build output of the app at the root, not tracked by git, removed after the
+    /// move: the executable and the lib folder would be left behind, and the executable stops
+    /// being ignored once .gitignore points to the app folder. </summary>
+    Leftovers: TArray<string>;
     Warnings: TArray<string>;
   end;
 
@@ -370,9 +374,12 @@ begin
       Exit(True);
 end;
 
+function IsTracked(const ARoot, APath: string): Boolean; forward;
+
 procedure AnalyzeApp(var APlan: TAdoptPlan; const AProjectFile: string; const ASubProjects: TArray<string>);
 var
   LUnit, LEntry, LExt, LSubProject: string;
+  LCandidates: TArray<string>;
 begin
   APlan.Name := ChangeFileExt(ExtractFileName(AProjectFile), '');
   if not IsValidIdent(APlan.Name) then
@@ -418,6 +425,19 @@ begin
        // build output and session files of the app
        not AnsiMatchText(LEntry, [APlan.Name, APlan.Name + '.exe', APlan.Name + '.lps', APlan.Name + '.app']) then
       APlan.LeftAtRoot := APlan.LeftAtRoot + [LEntry];
+
+  // build output of the old layout; a tracked file with the same name is not build output
+  // a typed array: FPC 3.2.2 fails on for-in over an array constructor of computed strings
+  LCandidates := [APlan.Name, APlan.Name + '.exe', APlan.Name + '.app', 'lib'];
+  for LEntry in LCandidates do
+    if (FileExists(ConcatPaths([APlan.Root, LEntry])) or DirectoryExists(ConcatPaths([APlan.Root, LEntry]))) and
+       not IsTracked(APlan.Root, LEntry) then
+      APlan.Leftovers := APlan.Leftovers + [LEntry];
+
+  // the IDE backup copies are not build output, they can not be generated again
+  if DirectoryExists(ConcatPaths([APlan.Root, 'backup'])) then
+    APlan.Warnings := APlan.Warnings + [
+      'backup has the Lazarus IDE backup copies of the files that moved, review and remove it.'];
 
   if DirectoryExists(ConcatPaths([APlan.Root, '.vscode'])) then
     APlan.Warnings := APlan.Warnings + [
@@ -613,6 +633,22 @@ begin
   Result := (Git(ARoot, ['ls-files', '--', APath], LOutput) = 0) and (Trim(LOutput) <> '');
 end;
 
+procedure RemoveTree(const APath: string);
+var
+  LName: string;
+begin
+  if not DirectoryExists(APath) then
+  begin
+    DeleteFile(APath);
+    Exit;
+  end;
+  for LName in ListEntries(APath, '*', True) do
+    RemoveTree(ConcatPaths([APath, LName]));
+  for LName in ListEntries(APath, '*', False) do
+    DeleteFile(ConcatPaths([APath, LName]));
+  RemoveDir(APath);
+end;
+
 /// moves what is left in a folder (untracked files) to the target folder
 procedure MoveRemaining(const ASource, ATarget: string);
 var
@@ -770,7 +806,7 @@ var
   LMove: TAdoptMove;
   LMovedPaths: TArray<string>;
   LReference: TAdoptReference;
-  LAppDir, LTestProject, LMainSrc: string;
+  LAppDir, LTestProject, LMainSrc, LLeftover: string;
 begin
   Result := [];
   if APlan.Kind = akRefused then
@@ -808,6 +844,12 @@ begin
   if (LTestProject <> '') and
      RebaseProjectFile(LTestProject, ConcatPaths([APlan.Root, 'tests']), LMovedPaths) then
     Result := Result + [ExtractFileName(LTestProject) + ' paths updated'];
+
+  for LLeftover in APlan.Leftovers do
+  begin
+    RemoveTree(ConcatPaths([APlan.Root, LLeftover]));
+    Result := Result + [LLeftover + ' removed, build output of the previous layout'];
+  end;
 
   SaveFileContent(ConcatPaths([APlan.Root, WORKSPACE_FILE]), GetResource('pascjson'));
   Result := Result + [WORKSPACE_FILE + ' created'];

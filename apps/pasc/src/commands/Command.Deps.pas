@@ -109,7 +109,7 @@ end;
 
 procedure SyncWorkspaceModules(ABuilder: ICommandBuilder; const AWorkspaceDir: string);
 var
-  LModuleDirs: TArray<string>;
+  LModuleDirs, LMissing: TArray<string>;
   LMember: TWorkspaceMember;
   LTestProject: string;
 begin
@@ -127,6 +127,14 @@ begin
     if LTestProject <> '' then
       SyncProject(ABuilder, AWorkspaceDir, LTestProject, LModuleDirs);
   end;
+
+  LMissing := GetModulesMissingFromLock(AWorkspaceDir);
+  if Length(LMissing) > 0 then
+    OutputError(ABuilder, 'Warning',
+      'boss-lock.json records module folders that are not in modules: ' + string.Join(', ', LMissing) +
+      '. The lock was written by another boss version (boss 3.x names them github_com_<user>_<repo>, ' +
+      'older versions use the repository name), so the search paths only match the boss of this machine. ' +
+      'Use the same boss version everywhere, locally and in the CI.');
 end;
 
 procedure DepsCommand(ABuilder: ICommandBuilder);
@@ -179,6 +187,8 @@ begin
       'Runs boss install at the workspace root, even inside a member, and updates the '#13#10 +
       'search paths of every member and test project with the installed modules, '#13#10 +
       'relative to each one. A dependency can be provided to be added to boss.json.'#13#10 +
+      'The module folder names depend on the boss version, so the workspace should use '#13#10 +
+      'the same boss version everywhere, locally and in the CI.'#13#10 +
       'Ex: ' + ABuilder.ExeName + ' deps'#13#10 +
       'Ex: ' + ABuilder.ExeName + ' deps github.com/user/repo',
       @DepsCommand,

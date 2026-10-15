@@ -43,7 +43,7 @@ jobs:
         path: |
           ${{ matrix.fpc-dir }}
           ${{ matrix.lazarus-dir }}
-        key: toolchain-${{ runner.os }}-fpc-${{ env.FPC_VERSION }}-${{ env.LAZARUS_TAG }}-v1
+        key: toolchain-${{ runner.os }}-fpc-${{ env.FPC_VERSION }}-${{ env.LAZARUS_TAG }}-v2
 
     - name: Install FPC (Linux)
       if: ${{ runner.os == 'Linux' && steps.cache-toolchain.outputs.cache-hit != 'true' }}
@@ -77,6 +77,16 @@ jobs:
           # Inno Setup installers
           Start-Process -FilePath ".\$file" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=${{ matrix.fpc-dir }}" -Wait
           Remove-Item $file
+        }
+        # the installer also brings docs, demos and the sources, which compiling does not need:
+        # the units are precompiled in units\
+        Get-ChildItem "${{ matrix.fpc-dir }}" -Directory | ForEach-Object {
+          $size = (Get-ChildItem $_.FullName -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
+          "{0,8:N0} MB  {1}" -f $size, $_.Name
+        }
+        foreach ($dir in @("doc", "demo", "examples", "source")) {
+          $path = Join-Path "${{ matrix.fpc-dir }}" $dir
+          if (Test-Path $path) { Remove-Item $path -Recurse -Force; "removed $dir" }
         }
 
     - name: Add FPC to the path (Linux)

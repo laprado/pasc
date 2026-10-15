@@ -1,0 +1,140 @@
+name: build (lazarus from gitlab)
+
+# Test for #24: installs FPC from official sources and builds lazbuild from the
+# Lazarus sources on the freepascal.org GitLab, instead of setup-lazarus and SourceForge.
+on:
+  pull_request:
+    branches:
+    - "main"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FPC_VERSION: "3.2.2"
+  LAZARUS_TAG: "lazarus_4_8"
+  # commit of the lazarus_4_8 tag, checked after the clone
+  LAZARUS_COMMIT: "62c14a4d18c81f222127d42ce9b89b922c63fcbf"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - operating-system: ubuntu-latest
+          lazarus-dir: /home/runner/lazarus
+        - operating-system: windows-latest
+          lazarus-dir: C:/lazarus
+          fpc-dir: C:/fpc
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install FPC (Linux)
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends fpc
+        fpc -iV
+
+    - name: Cache FPC (Windows)
+      if: ${{ runner.os == 'Windows' }}
+      id: cache-fpc
+      uses: actions/cache@v4
+      with:
+        path: ${{ matrix.fpc-dir }}
+        key: fpc-${{ env.FPC_VERSION }}-win32-cross-win64-v1
+
+    - name: Install FPC (Windows)
+      if: ${{ runner.os == 'Windows' && steps.cache-fpc.outputs.cache-hit != 'true' }}
+      run: |
+        $base = "https://downloads.freepascal.org/fpc/dist/$env:FPC_VERSION/i386-win32"
+        $files = @{
+          "fpc-$env:FPC_VERSION.i386-win32.exe" = "7ec78b1790ecac7685f440b17f9e03865bc09846b7c068a9270c4d37704b5ac8"
+          "fpc-$env:FPC_VERSION.i386-win32.cross.x86_64-win64.exe" = "9b4ea18d9c0a613fcc815b78612967a62d539e8c42070299c5c3c2ce8f712768"
+        }
+        foreach ($file in @("fpc-$env:FPC_VERSION.i386-win32.exe", "fpc-$env:FPC_VERSION.i386-win32.cross.x86_64-win64.exe")) {
+          curl.exe -fsSLO "$base/$file"
+          if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $files[$file]) { throw "$file checksum mismatch" }
+          # Inno Setup installers
+          Start-Process -FilePath ".\$file" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=${{ matrix.fpc-dir }}" -Wait
+        }
+
+    - name: Add FPC to the path (Windows)
+      if: ${{ runner.os == 'Windows' }}
+      run: |
+        $bin = Join-Path "${{ matrix.fpc-dir }}" "$env:FPC_VERSION\bin\i386-win32"
+        echo $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        & (Join-Path $bin "fpc.exe") -iV
+
+    - name: Cache Lazarus
+      id: cache-lazarus
+      uses: actions/cache@v4
+      with:
+        path: ${{ matrix.lazarus-dir }}
+        key: ${{ env.LAZARUS_TAG }}-lazbuild-${{ runner.os }}-fpc-${{ env.FPC_VERSION }}-v1
+
+    - name: Get Lazarus sources
+      if: ${{ steps.cache-lazarus.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        git clone -q --depth 1 --branch "$LAZARUS_TAG" https://gitlab.com/freepascal.org/lazarus/lazarus.git "${{ matrix.lazarus-dir }}"
+        test "$(git -C "${{ matrix.lazarus-dir }}" rev-parse HEAD)" = "$LAZARUS_COMMIT"
+
+    - name: Build lazbuild (Linux)
+      if: ${{ runner.os == 'Linux' && steps.cache-lazarus.outputs.cache-hit != 'true' }}
+      run: make -C "${{ matrix.lazarus-dir }}" lazbuild
+
+    # FPC makefiles detect the shell, so make runs outside Git Bash, with the make.exe of FPC
+    - name: Build lazbuild (Windows)
+      if: ${{ runner.os == 'Windows' && steps.cache-lazarus.outputs.cache-hit != 'true' }}
+      run: |
+        Get-Command make | Format-List Source
+        make -C "${{ matrix.lazarus-dir }}" lazbuild
+
+    - name: Check lazbuild
+      shell: bash
+      run: |
+        "${{ matrix.lazarus-dir }}/lazbuild" --version
+        echo "${{ matrix.lazarus-dir }}" >> $GITHUB_PATH
+
+    - name: Download and extract BOSS (Linux)
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        curl -fsSLO https://github.com/HashLoad/boss/releases/download/v3.0.17/boss_Linux_x86_64.tar.gz
+        echo "c40ec124f4f2563b6c873dbeeba2dfad6b80b644a0f765a7291bd9efd0b21e3e  boss_Linux_x86_64.tar.gz" | sha256sum -c -
+        mkdir boss-bin && tar xzf boss_Linux_x86_64.tar.gz -C boss-bin
+        echo "$GITHUB_WORKSPACE/boss-bin" >> $GITHUB_PATH
+
+    - name: Download and extract BOSS (Windows)
+      if: ${{ runner.os == 'Windows' }}
+      run: |
+        curl -fsSLO https://github.com/HashLoad/boss/releases/download/v3.0.17/boss_Windows_x86_64.zip
+        if ((Get-FileHash boss_Windows_x86_64.zip -Algorithm SHA256).Hash -ne "aac660435608a9e6a4a05eb9ee9a2c4a0a6156d5efe6e48f48fa1227006cda5d") { throw "boss checksum mismatch" }
+        Expand-Archive boss_Windows_x86_64.zip -DestinationPath boss-bin
+        echo (Join-Path $env:GITHUB_WORKSPACE "boss-bin") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: BOSS Update packages
+      run: boss update
+
+    # FPC 3.2.2 on Windows is i386 with a cross compiler, so the 64-bit target is explicit
+    - name: Building main application
+      shell: bash
+      run: |
+        target=""
+        if [ "$RUNNER_OS" = "Windows" ]; then target="--os=win64 --cpu=x86_64"; fi
+        lazbuild --lazarusdir="${{ matrix.lazarus-dir }}" $target "apps/pasc/pasc.lpi" -B --build-mode=Release
+
+    - name: Building unit test application
+      shell: bash
+      run: |
+        target=""
+        if [ "$RUNNER_OS" = "Windows" ]; then target="--os=win64 --cpu=x86_64"; fi
+        lazbuild --lazarusdir="${{ matrix.lazarus-dir }}" $target "apps/pasc/tests/TestPasc.lpi" -B
+
+    - name: Run the unit test application
+      run: |
+        apps/pasc/tests/TestPasc "--all" "--format=plain"

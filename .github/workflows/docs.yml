@@ -40,7 +40,7 @@ jobs:
       run: boss update
 
     - name: Building pasc
-      run: lazbuild --lazarusdir="$LAZARUS_DIR" "apps/pasc/pasc.lpi" -B --build-mode=Release
+      run: lazbuild "apps/pasc/pasc.lpi" -B --build-mode=Release
 
     # the release asset listed on pasdoc.github.io, with its published sha256
     - name: Install pasdoc

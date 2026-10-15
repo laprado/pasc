@@ -113,17 +113,6 @@ LazarusResources.Add('projectlpr','TXT',[
   'program {PROJECTNAME};'#10#10'{$MODE DELPHI}{$H+}'#10'{$R *.res}'#10#10'begi'
   +'n'#10'end.'
 ]);
-LazarusResources.Add('update-path-ps1','TXT',[
-  '$EnvPathCheck = [System.Environment]::GetEnvironmentVariable("Path","User")'
-  +#10#10'$PascPath = $args[0]'#10#10'if (-Not $PascPath) {'#10'  $PascPath = J'
-  +'oin-Path -Path $HOME -ChildPath ".pasc"'#10'}'#10#10'if (-Not $EnvPathCheck'
-  +'.Contains($PascPath)) {'#10'  $EnvPathCheck = $EnvPathCheck + ";" + $PascPa'
-  +'th'#10'  [System.Environment]::SetEnvironmentVariable("Path", $EnvPathCheck'
-  +', "User")'#10'}'
-]);
-LazarusResources.Add('update-path-sh','TXT',[
-  'source $HOME/.profile'#10'chmod +x $1'
-]);
 LazarusResources.Add('fpcunitprojectlpi','TXT',[
   '<?xml version="1.0" encoding="UTF-8"?>'#10'<CONFIG>'#10'  <ProjectOptions>'
   +#10'    <Version Value="12"/>'#10'    <PathDelim Value="\"/>'#10'    <Genera'

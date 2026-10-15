@@ -1,21 +1,26 @@
-/// <summary> This unit contains procedures to configure and execute a command to install 
-/// pasc app in the following path $HOME/.pasc. 
+/// <summary> This unit contains the deprecated install command. pasc used to copy itself to
+/// $HOME/.pasc and change the PATH (~/.profile on Linux, /etc/paths on macOS, the user PATH on
+/// Windows), which was unreliable. The command now only shows how to install pasc with a
+/// package manager, manually or from source, and how to remove an old install. It does not
+/// change anything.
 /// </summary>
 unit Command.Install;
+
+{$MODE DELPHI}{$H+}
 
 interface
 
 uses
   Command.Interfaces;
 
-  /// <summary> Copy the pasc application to the "home" folder and create the folder 
-  /// if it doesn't exist. Updates the OS-equivalent path environment variable with 
-  /// the new folder so that pasc is visible on the command line. </summary>
-  /// <param name="ABuilder"> Instance o the builder that will be use to output
-  /// instructions to user about the installation status </param>
+  /// <summary> Shows the recommended way to install pasc on the current platform, and the
+  /// steps to remove an install made by the previous versions of this command. Nothing is
+  /// changed, and the exit code is 1, since pasc is not installed by it. </summary>
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output the instructions. </param>
   procedure InstallCommand(ABuilder: ICommandBuilder);
 
-  /// <summary> Registry a install command using the command builder from pascli, also sets. 
+  /// <summary> Registry a install command using the command builder from pascli, also sets.
   /// options and usage help info. </summary>
   /// <param name="ABuilder"> Command builder of the main application that will be used to
   /// registry the command. </param>
@@ -23,46 +28,11 @@ uses
 
   {$IF DEFINED(TESTAPP)}
 
-  /// <summary> Creates a subfolder in the user's home folder with the application name. 
-  /// Set the home folder to the new current path. </summary>
-  /// <param name="ABuilder"> Command builder of the main application that will be used to
-  /// output info about folder creation. </param>
-  /// <param name="AFolder"> Output parameter with the folder name created. </param>
-  procedure CreateFolder(ABuilder: ICommandBuilder; var AFolder: string);
-
-  /// <summary> Copy the application itself to the given path. Overwrite the file if it exists.
+  /// <summary> Returns the steps to remove an install made by the previous versions of the
+  /// install command, found from the given home folder. Returns empty if there is none.
   /// </summary>
-  /// <param name="ABuilder"> Command builder of the main application that will be used to
-  /// output info about app copy. </param>
-  /// <param name="AFolder"> Target full path to copy the application </param>
-  procedure CopyApp(ABuilder: ICommandBuilder; const AFolder: string);
-
-  /// <summary> Adds the given path to the .profile user file. It also displays state 
-  /// information to the user about the success or failure of this action. The user can be 
-  /// guided to perform administration elevation procedures.
-  /// </summary>
-  /// <param name="ABuilder"> Command builder of the main application that will be used to
-  /// output info about path variable change. </param>
-  /// <param name="AFolder"> Full path that will be added to path environment variable. </param>
-  procedure UpdateEnvironmentPathLinux(ABuilder: ICommandBuilder; const AFolder: string);
-
-  /// <summary> Adds the given path to the /etc/paths user file. It also displays state 
-  /// information to the user about the success or failure of this action. The user can be 
-  /// guided to perform administration elevation procedures.
-  /// </summary>
-  /// <param name="ABuilder"> Command builder of the main application that will be used to
-  /// output info about path variable change. </param>
-  /// <param name="AFolder"> Full path that will be added to path environment variable. </param>
-  procedure UpdateEnvironmentPathMacos(ABuilder: ICommandBuilder; const AFolder: string);
-
-  /// <summary> Adds the given path to the path environment variable. It also displays state 
-  /// information to the user about the success or failure of this action. The user can be 
-  /// guided to perform administration elevation procedures.
-  /// </summary>
-  /// <param name="ABuilder"> Command builder of the main application that will be used to
-  /// output info about path variable change. </param>
-  /// <param name="AFolder"> Full path that will be added to path environment variable. </param>
-  procedure UpdateEnvironmentPathWindows(ABuilder: ICommandBuilder; const AFolder: string);
+  /// <param name="AHomeDir"> User home folder. </param>
+  function OldInstallCleanupSteps(const AHomeDir: string): TArray<string>;
 
   {$ENDIF}
 
@@ -70,178 +40,80 @@ implementation
 
 uses
   Classes,
-  StrUtils,
   SysUtils,
-  FileUtil,
-  Utils.Resources,
-  Utils.Shell,
+  StrUtils,
   Utils.IO,
   Utils.Output;
 
-procedure CreateFolder(ABuilder: ICommandBuilder; var AFolder: string);
+const
+  RELEASES_URL = 'https://github.com/laprado/pasc/releases/latest';
+  README_URL = 'https://github.com/laprado/pasc#install';
+
+function OldInstallCleanupSteps(const AHomeDir: string): TArray<string>;
 var
-  LSubFolder: string;
+  LFolder, LProfile: string;
+  {$IF DEFINED(WINDOWS)}
+  LPath: string;
+  {$ENDIF}
 begin
-  LSubFolder := '.' + ChangeFileExt(ABuilder.ExeName, '');
-  AFolder := ConcatPaths([GetUserDir, LSubFolder]);
+  Result := [];
+  LFolder := ConcatPaths([AHomeDir, '.pasc']);
+  if DirectoryExists(LFolder) then
+    Result := Result + ['remove the folder ' + LFolder];
 
-  OutputInfo(ABuilder, 'creating', 'destination folder ' + AFolder);
+  {$IF DEFINED(WINDOWS)}
+  LPath := GetEnvironmentVariable('PATH');
+  if ContainsText(LPath, LFolder) then
+    Result := Result + [
+      'remove ' + LFolder + ' from the user PATH: Settings > System > About > ' +
+      'Advanced system settings > Environment Variables'];
+  {$ELSE}
+  LProfile := ConcatPaths([AHomeDir, '.profile']);
+  if FileExists(LProfile) and ContainsText(GetFileContent(LProfile), 'export PATH=$PATH:' + LFolder) then
+    Result := Result + ['remove the line "export PATH=$PATH:' + LFolder + '" from ' + LProfile];
+  {$ENDIF}
 
-  if not DirectoryExists(AFolder) then
-  begin
-    SetCurrentDir(GetUserDir);
-    CreateDir(LSubFolder);
-  end;
+  {$IF DEFINED(DARWIN)}
+  if FileExists('/etc/paths') and ContainsText(GetFileContent('/etc/paths'), LFolder) then
+    Result := Result + ['remove the line ' + LFolder + ' from /etc/paths (needs sudo)'];
+  {$ENDIF}
 end;
 
-procedure CopyApp(ABuilder: ICommandBuilder; const AFolder: string);
+procedure OutputRecommendedInstall(ABuilder: ICommandBuilder);
 begin
-  OutputInfo(ABuilder, 'copying', ApplicationName + ' to destination folder');
-  if not SameText(ParamStr(0), ConcatPaths([AFolder, ExtractFileName(ParamStr(0))])) then
-    CopyFile(ParamStr(0), ConcatPaths([AFolder, ExtractFileName(ParamStr(0))]), [cffOverwriteFile]);  
-end;
-
-procedure UpdateEnvironmentPathLinux(ABuilder: ICommandBuilder; const AFolder: string);
-var
-  LProfile, LContent, LExport: string;
-  LExitCode: Integer = 0;
-begin
-  OutputInfo(ABuilder, 'updating', 'path environment variable, this may require administration privileges');
-  
-  LProfile := ConcatPaths([GetUserDir, '.profile']);
-  LContent := GetFileContent(LProfile);
-
-  OutputInfo(ABuilder, 'changing', 'file: ~/.profile ');
-
-  // adequar para a pasta passada como parâmetro
-  LExport := 'export PATH=$PATH:' + AFolder;
-  if not ContainsText(LContent, LExport) then 
-  begin
-    LContent := LContent + #13#10 + LExport;
-    SaveFileContent(LProfile, LContent);
-  end;
-
-  OutputInfo(ABuilder, 'running', 'source ~/.profile to make path changes to take effect');
-    
-  LContent := GetResource('update-path-sh'); 
-  SaveFileContent(ConcatPaths([AFolder, 'update-path.sh']), LContent);
-
-  LContent := ShellCommand(
-    'bash', 
-    [
-      ConcatPaths([AFolder, 'update-path.sh']), 
-      ConcatPaths([AFolder, ABuilder.ExeName])
-    ],
-    LExitCode);
-  ExitCode := LExitCode;
-  if LExitCode <> 0 then
-    OutputError(ABuilder, 'error', 'failed to update path environment variable: exit code ' + IntToStr(LExitCode));
-
-  if LContent <> '' then
-    ABuilder.OutputColor(LContent + #13#10, ABuilder.ColorTheme.Other);
-end;
-
-procedure UpdateEnvironmentPathMacos(ABuilder: ICommandBuilder; const AFolder: string);
-var
-  LFile: TStringList = nil;
-  LProfile, LContent: string;
-  I: Integer;
-  LExitCode: Integer = 0;
-  LFound: Boolean = false;
-begin
-  OutputInfo(ABuilder, 'updating', 'path environment variable, this may require administration privileges');
-
-  LFile := TStringList.Create;
-  try
-    LProfile := ConcatPaths(['/', 'etc', 'paths']);
-    LFile.LoadFromFile(LProfile);
-    
-    OutputInfo(ABuilder, 'changing', 'file: /etc/paths to add pasc path ');
-    
-    for I := 0 to LFile.Count -1 do 
-      if ContainsText(LFile.Strings[I], AFolder) then 
-      begin
-        LFound := True;
-        break;
-      end;
-
-    if not LFound then
-    begin
-      LFile.Add(AFolder);
-      LFile.SaveToFile(LProfile);
-    end;
-  
-    OutputInfo(ABuilder, 'running', 'shell script to make allow pasc to ben run on new path');
-    
-    LFile.Clear;
-    LFile.AddText(GetResource('update-path-sh'));
-    LFile.SaveToFile(ConcatPaths([AFolder, 'update-path.sh']));
-
-    LContent := ShellCommand(
-      'bash', 
-      [
-        ConcatPaths([AFolder, 'update-path.sh']), 
-        ConcatPaths([AFolder, ABuilder.ExeName])
-      ],
-      LExitCode);
-    if LExitCode <> 0 then
-      OutputError(ABuilder, 'error', 'failed to update path environment variable: exit code ' + IntToStr(LExitCode));
-
-    WriteLn(LContent);
-
-  finally
-    LFile.Free;
-  end; 
-end;
-
-procedure UpdateEnvironmentPathWindows(ABuilder: ICommandBuilder; const AFolder: string);
-var
-  LName: string = 'update-path.ps1';
-  LExitCode: Integer = 0;
-begin
-  OutputInfo(ABuilder, 'updating', 'environment path, this may require administration privileges ');
-  SaveFileContent(ConcatPaths([AFolder, LName]), GetResource('update-path-ps1'));
-
-  OutputInfo(ABuilder, 'script', 'running shell script file: ' + LName);
-  ShellCommand('powershell', [ConcatPaths([AFolder, LName]), AFolder], LExitCode);
-  if LExitCode <> 0 then
-  begin
-    OutputError(ABuilder, 'error', 'failed to update path environment variable: exit code ' + IntToStr(LExitCode));
-    OutputError(ABuilder, '', 'this could be caused by the lack of administration privileges while running the script');
-    OutputError(ABuilder, '', 'or the lack of execution policy to run powershell scripts. To fix this, run the following command:');
-    OutputError(ABuilder, '', 'Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser');
-    OutputError(ABuilder, '', 'execute the command to install pasc again after that');
-  end;
-
-  OutputInfo(ABuilder, 'info', 'please restart your terminal app to path variable take effect');
+  {$IF DEFINED(DARWIN) OR DEFINED(CPUAARCH64)}
+  // there is no release binary for this platform
+  OutputInfo(ABuilder, 'Install', 'there is no pasc release binary for this platform yet, build it from source:');
+  OutputInfo(ABuilder, '', README_URL);
+  {$ELSE}
+  OutputInfo(ABuilder, 'Install', 'with mise (https://mise.jdx.dev), which also upgrades and uninstalls it:');
+  OutputInfo(ABuilder, '', 'mise use -g github:laprado/pasc');
+  OutputInfo(ABuilder, 'Manual', 'download pasc-' + {$IF DEFINED(WINDOWS)}'windows'{$ELSE}'linux'{$ENDIF} +
+    '-amd64.zip from ' + RELEASES_URL + ',');
+  OutputInfo(ABuilder, '', 'check it against the checksums file of the release and extract it to a folder in the PATH');
+  OutputInfo(ABuilder, 'Details', README_URL);
+  {$ENDIF}
 end;
 
 procedure InstallCommand(ABuilder: ICommandBuilder);
 var
-  LAppFolder: string = '';
+  LStep: string;
+  LSteps: TArray<string>;
 begin
-  try
-    OutputInfo(ABuilder, 'Starting', 'to install pasc on user''s home folder');
-    CreateFolder(ABuilder, LAppFolder);
-    CopyApp(ABuilder, LAppFolder);
-    SetCurrentDir(LAppFolder);
-    {$IF DEFINED(WINDOWS)}
-    UpdateEnvironmentPathWindows(ABuilder, LAppFolder);
-    {$ENDIF}
-    {$IF DEFINED(LINUX)}
-    UpdateEnvironmentPathLinux(ABuilder, LAppFolder);
-    {$ENDIF}
-    {$IF DEFINED(Darwin)}
-    UpdateEnvironmentPathMacos(ABuilder, LAppFolder);
-    {$ENDIF}
-    OutputInfo(ABuilder, 'install', 'complete');
-  except
-    on E: Exception do
-    begin
-      OutputError(ABuilder, 'error', E.Message);
-      raise;
-    end;
+  OutputError(ABuilder, 'Deprecated',
+    'pasc install no longer installs pasc or changes the PATH, use a package manager instead.');
+  OutputRecommendedInstall(ABuilder);
+
+  LSteps := OldInstallCleanupSteps(GetUserDir);
+  if Length(LSteps) > 0 then
+  begin
+    OutputInfo(ABuilder, 'Cleanup', 'an install made by a previous pasc install was found, to remove it:');
+    for LStep in LSteps do
+      OutputInfo(ABuilder, '', '- ' + LStep);
   end;
+
+  // nothing was installed, so scripts relying on this command notice it
+  ExitCode := 1;
 end;
 
 procedure Registry(ABuilder: ICommandBuilder);
@@ -249,14 +121,12 @@ begin
   ABuilder
     .AddCommand(
       'install',
-      'Install pasc on user home folder and add it to path.'#13#10 +
-      'A folder called .pasc will be created on user''s home folder and will be added to '#13#10 +
-      'the path environment variable. You may need to restart the terminal to this '#13#10 +
-      'change takes effect. '#13#10 +
-      'Administration privileges may be required to execute this command.'#13#10 +
-      'Ex: ./' + ABuilder.ExeName + ' install',
+      'deprecated: shows how to install pasc and how to remove an old install.'#13#10 +
+      'It no longer copies pasc or changes the PATH, which was unreliable. Use a package '#13#10 +
+      'manager instead, like mise: mise use -g github:laprado/pasc'#13#10 +
+      'Ex: ' + ABuilder.ExeName + ' install',
       @InstallCommand,
-      [ccNoParameters]);  
+      [ccNoParameters]);
 end;
 
 end.

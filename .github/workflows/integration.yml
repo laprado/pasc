@@ -57,14 +57,14 @@ jobs:
       run: |
         target=""
         if [ "$RUNNER_OS" = "Windows" ]; then target="--os=win64 --cpu=x86_64"; fi
-        lazbuild --lazarusdir="$LAZARUS_DIR" $target "apps/pasc/pasc.lpi" -B --build-mode=Release
+        lazbuild $target "apps/pasc/pasc.lpi" -B --build-mode=Release
 
     - name: Building unit test application
       shell: bash
       run: |
         target=""
         if [ "$RUNNER_OS" = "Windows" ]; then target="--os=win64 --cpu=x86_64"; fi
-        lazbuild --lazarusdir="$LAZARUS_DIR" $target "apps/pasc/tests/TestPasc.lpi" -B
+        lazbuild $target "apps/pasc/tests/TestPasc.lpi" -B
 
     - name: Run the unit test application
       run: apps/pasc/tests/TestPasc "--all" "--format=plain"
@@ -133,11 +133,17 @@ jobs:
         "$HOME/kcov/bin/kcov" --version
 
     - name: Building main application
-      run: lazbuild --lazarusdir="$LAZARUS_DIR" "apps/pasc/pasc.lpi"
+      run: lazbuild "apps/pasc/pasc.lpi"
 
     # at the root of the workspace, every member with tests, merged in coverage/kcov-merged
     - name: Measuring the coverage
-      run: apps/pasc/pasc coverage
+      id: coverage
+      run: |
+        apps/pasc/pasc coverage
+        # the merged report of the members
+        percent=$(jq -r '.percent_covered' coverage/kcov-merged/coverage.json)
+        echo "percent=$percent" >> "$GITHUB_OUTPUT"
+        echo "coverage: $percent%"
 
     - name: Upload the coverage report
       if: always()
@@ -152,7 +158,7 @@ jobs:
     - name: Publish the coverage badge
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        percent=$(jq -r '.percent_covered' coverage/kcov-merged/coverage.json)
+        percent="${{ steps.coverage.outputs.percent }}"
         color=$(awk -v p="$percent" 'BEGIN { if (p < 60) print "red"; else if (p < 80) print "yellow"; else if (p < 90) print "green"; else print "brightgreen" }')
         message=$(awk -v p="$percent" 'BEGIN { printf "%.1f%%", p }')
 

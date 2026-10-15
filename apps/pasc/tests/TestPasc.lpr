@@ -17,6 +17,7 @@ uses
   TestUtilsOutput,
   TestUtilsResources,
   TestUtilsShell,
+  TestUtilsTemplates,
   TestUtilsTests,
   TestUtilsWatcher,
   TestUtilsWorkspace,

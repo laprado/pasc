@@ -34,6 +34,16 @@ uses
   /// <param name="AWorkspaceDir"> Workspace root folder. </param>
   procedure SyncWorkspaceModules(ABuilder: ICommandBuilder; const AWorkspaceDir: string);
 
+  /// <summary> Runs boss install for each dependency at the workspace root, then updates the
+  /// search paths of the members, like the deps command. Returns false, with the boss exit code
+  /// in ExitCode, if boss failed. </summary>
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output the boss output and the updated files. </param>
+  /// <param name="AWorkspaceDir"> Workspace root folder. </param>
+  /// <param name="ADependencies"> boss dependencies, like github.com/user/repo. </param>
+  function InstallDependencies(ABuilder: ICommandBuilder; const AWorkspaceDir: string;
+    const ADependencies: TArray<string>): Boolean;
+
 implementation
 
 uses
@@ -135,6 +145,18 @@ begin
       '. The lock was written by another boss version (boss 3.x names them github_com_<user>_<repo>, ' +
       'older versions use the repository name), so the search paths only match the boss of this machine. ' +
       'Use the same boss version everywhere, locally and in the CI.');
+end;
+
+function InstallDependencies(ABuilder: ICommandBuilder; const AWorkspaceDir: string;
+  const ADependencies: TArray<string>): Boolean;
+var
+  LDependency: string;
+begin
+  for LDependency in ADependencies do
+    if not RunBossInstall(ABuilder, AWorkspaceDir, LDependency) then
+      Exit(False);
+  SyncWorkspaceModules(ABuilder, AWorkspaceDir);
+  Result := True;
 end;
 
 procedure DepsCommand(ABuilder: ICommandBuilder);

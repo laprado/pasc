@@ -1,0 +1,59 @@
+/// <summary> Waits for the signal to stop the app: SIGINT (Ctrl+C) or SIGTERM, sent by a
+/// service manager or a container runtime, on Linux and macOS; Ctrl+C, Ctrl+Break or the
+/// console being closed on Windows. </summary>
+unit Shutdown;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+  /// <summary> Installs the signal handlers and blocks until one of the signals arrives.
+  /// </summary>
+  procedure WaitForShutdownSignal;
+
+implementation
+
+uses
+  {$IF DEFINED(UNIX)}
+  BaseUnix,
+  {$ELSEIF DEFINED(WINDOWS)}
+  Windows,
+  {$ENDIF}
+  SysUtils;
+
+var
+  ShutdownRequested: Boolean = False;
+
+{$IF DEFINED(UNIX)}
+procedure SignalHandler(ASignal: cint); cdecl;
+begin
+  // only sets the flag, the shutdown runs in the main thread
+  ShutdownRequested := True;
+end;
+
+procedure InstallHandlers;
+begin
+  fpSignal(SIGINT, SignalHandler);
+  fpSignal(SIGTERM, SignalHandler);
+end;
+{$ELSEIF DEFINED(WINDOWS)}
+function ConsoleHandler(ACtrlType: DWORD): BOOL; stdcall;
+begin
+  ShutdownRequested := True;
+  Result := True;
+end;
+
+procedure InstallHandlers;
+begin
+  SetConsoleCtrlHandler(@ConsoleHandler, True);
+end;
+{$ENDIF}
+
+procedure WaitForShutdownSignal;
+begin
+  InstallHandlers;
+  while not ShutdownRequested do
+    Sleep(100);
+end;
+
+end.

@@ -1,0 +1,43 @@
+/// <summary> Registers the dependencies and the routes of the app. Every request gets its own
+/// services through horse Req.Services: a middleware adds a factory for each service, which
+/// creates it, with its repository, only when a route resolves it, and frees it with the
+/// request. To add a feature, register its service factory and its routes here.
+/// </summary>
+unit Build;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+  /// <summary> Registers the services middleware and the routes of every feature. </summary>
+  procedure Configure;
+
+implementation
+
+uses
+  Horse,
+  Repo.Customers,
+  Customers.Service,
+  Customers.Routes,
+  Health.Routes;
+
+function NewCustomerService: TObject;
+begin
+  Result := TCustomerService.Create(TSQLiteCustomerRepository.Create);
+end;
+
+procedure Services(AReq: THorseRequest; ARes: THorseResponse; ANext: TNextProc);
+begin
+  AReq.Services.AddFactory(TCustomerService, NewCustomerService);
+  ANext();
+end;
+
+procedure Configure;
+begin
+  THorse.Use(Services);
+
+  Health.Routes.Registry;
+  Customers.Routes.Registry;
+end;
+
+end.

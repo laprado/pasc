@@ -1,0 +1,72 @@
+unit TestCustomersPayloads;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  SysUtils,
+  fpcunit,
+  testregistry,
+  Customers.Payloads;
+
+type
+
+  TTestCustomersPayloads = class(TTestCase)
+  published
+    procedure TestInputFromJSON;
+    procedure TestInputFromInvalidJSON;
+    procedure TestInputFromJSONArray;
+    procedure TestOutputsToJSON;
+  end;
+
+implementation
+
+uses
+  StrUtils;
+
+procedure TTestCustomersPayloads.TestInputFromJSON;
+var
+  LInput: TCustomerInput;
+begin
+  LInput := TCustomerInput.FromJSON('{"name": "Ana", "email": "ana@example.com"}');
+  AssertEquals('Ana', LInput.Name);
+  AssertEquals('ana@example.com', LInput.Email);
+end;
+
+procedure TTestCustomersPayloads.TestInputFromInvalidJSON;
+begin
+  try
+    TCustomerInput.FromJSON('not json');
+    Fail('an invalid body should raise an exception');
+  except
+    on E: EPayloadError do
+      AssertTrue(ContainsStr(E.Message, 'not a valid JSON'));
+  end;
+end;
+
+procedure TTestCustomersPayloads.TestInputFromJSONArray;
+begin
+  try
+    TCustomerInput.FromJSON('[]');
+    Fail('a body that is not an object should raise an exception');
+  except
+    on E: EPayloadError do
+      AssertEquals('the body must be a JSON object', E.Message);
+  end;
+end;
+
+procedure TTestCustomersPayloads.TestOutputsToJSON;
+var
+  LCustomer: TCustomerOutput;
+begin
+  LCustomer.Id := 1;
+  LCustomer.Name := 'Ana';
+  LCustomer.Email := 'ana@example.com';
+  AssertEquals('[{ "id" : 1, "name" : "Ana", "email" : "ana@example.com" }]', CustomersToJSON([LCustomer]));
+end;
+
+initialization
+  RegisterTest(TTestCustomersPayloads);
+
+end.

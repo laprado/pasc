@@ -1,0 +1,103 @@
+unit TestCommandCount;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  SysUtils,
+  fpcunit,
+  testregistry,
+  Command.Interfaces,
+  Command.Builder;
+
+type
+
+  TTestCommandCount = class(TTestCase)
+  private
+    FBuilder: ICommandBuilder;
+    procedure RunCount(const AArgs: TArray<string>);
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestCountTo;
+    procedure TestCountToOutOfRange;
+    procedure TestCountCommandDefault;
+    procedure TestCountCommandWithValue;
+    procedure TestCountCommandInvalidValue;
+  end;
+
+implementation
+
+uses
+  StrUtils,
+  Command.Count,
+  TestOutput;
+
+procedure TTestCommandCount.SetUp;
+begin
+  FBuilder := TCommandBuilder.Create(ExtractFileName(ParamStr(0)));
+  CaptureOutput(FBuilder);
+  Command.Count.Registry(FBuilder);
+  ExitCode := 0;
+end;
+
+procedure TTestCommandCount.TearDown;
+begin
+  // the command sets the exit code on errors, the test runner should not exit with it
+  ExitCode := 0;
+end;
+
+procedure TTestCommandCount.RunCount(const AArgs: TArray<string>);
+begin
+  FBuilder.UseArguments(AArgs);
+  FBuilder.Parse;
+  FBuilder.Execute;
+end;
+
+procedure TTestCommandCount.TestCountTo;
+var
+  LNumbers: TArray<Integer>;
+begin
+  LNumbers := CountTo(3);
+  AssertEquals(3, Length(LNumbers));
+  AssertEquals(1, LNumbers[0]);
+  AssertEquals(3, LNumbers[2]);
+end;
+
+procedure TTestCommandCount.TestCountToOutOfRange;
+begin
+  try
+    CountTo(0);
+    Fail('zero should be out of range');
+  except
+    on E: EArgumentOutOfRangeException do
+      AssertTrue(ContainsStr(E.Message, 'between 1 and'));
+  end;
+end;
+
+procedure TTestCommandCount.TestCountCommandDefault;
+begin
+  RunCount(['count']);
+  AssertEquals('1' + LineEnding + '2' + LineEnding + '3' + LineEnding, OutputCaptured);
+end;
+
+procedure TTestCommandCount.TestCountCommandWithValue;
+begin
+  RunCount(['count', '--to=5']);
+  AssertTrue('should count up to 5. Check: ' + OutputCaptured, ContainsStr(OutputCaptured, '5' + LineEnding));
+  AssertEquals(0, ExitCode);
+end;
+
+procedure TTestCommandCount.TestCountCommandInvalidValue;
+begin
+  RunCount(['count', '--to=x']);
+  AssertTrue('should explain the error. Check: ' + OutputCaptured, ContainsStr(OutputCaptured, 'must be a number'));
+  AssertEquals(1, ExitCode);
+end;
+
+initialization
+  RegisterTest(TTestCommandCount);
+
+end.

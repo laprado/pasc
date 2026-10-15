@@ -1,0 +1,81 @@
+/// <summary> Example of a command with an option that requires a value: counts up to a number.
+/// </summary>
+unit Command.Count;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  Command.Interfaces;
+
+  /// <summary> Returns the numbers from 1 to ATo. The business code stays out of the command,
+  /// so it is tested without the builder. </summary>
+  function CountTo(const ATo: Integer): TArray<Integer>;
+
+  /// <summary> Shows the numbers from 1 to the value of --to, 3 by default. </summary>
+  procedure CountCommand(ABuilder: ICommandBuilder);
+
+  /// <summary> Registry the count command and its options in the command builder. </summary>
+  procedure Registry(ABuilder: ICommandBuilder);
+
+implementation
+
+uses
+  SysUtils;
+
+const
+  DEFAULT_COUNT = 3;
+  MAX_COUNT = 100;
+
+function CountTo(const ATo: Integer): TArray<Integer>;
+var
+  I: Integer;
+begin
+  if (ATo < 1) or (ATo > MAX_COUNT) then
+    raise EArgumentOutOfRangeException.CreateFmt('the count must be between 1 and %d', [MAX_COUNT]);
+
+  SetLength(Result, ATo);
+  for I := 1 to ATo do
+    Result[I - 1] := I;
+end;
+
+procedure CountCommand(ABuilder: ICommandBuilder);
+var
+  LValue: string;
+  LTo, LNumber: Integer;
+begin
+  LTo := DEFAULT_COUNT;
+  if ABuilder.CheckOption('to', LValue) and not TryStrToInt(LValue, LTo) then
+  begin
+    ABuilder.OutputColor('the value of --to must be a number' + LineEnding, ABuilder.ColorTheme.Error);
+    ExitCode := 1;
+    Exit;
+  end;
+
+  try
+    for LNumber in CountTo(LTo) do
+      ABuilder.OutputColor(IntToStr(LNumber) + LineEnding, ABuilder.ColorTheme.Value);
+  except
+    on E: EArgumentOutOfRangeException do
+    begin
+      ABuilder.OutputColor(E.Message + LineEnding, ABuilder.ColorTheme.Error);
+      ExitCode := 1;
+    end;
+  end;
+end;
+
+procedure Registry(ABuilder: ICommandBuilder);
+begin
+  ABuilder
+    .AddCommand(
+      'count',
+      'Counts from 1 up to a number.'#13#10 +
+      'Ex: ' + ABuilder.ExeName + ' count'#13#10 +
+      'Ex: ' + ABuilder.ExeName + ' count --to=5',
+      @CountCommand,
+      [ccNoParameters])
+      .AddOption('t', 'to', 'the last number, from 1 to 100. Default: 3.', [], ocRequiresValue);
+end;
+
+end.

@@ -1,0 +1,43 @@
+program {APPNAME};
+
+{$MODE DELPHI}{$H+}
+
+uses
+  {$IFDEF UNIX}
+  cthreads,
+  {$ENDIF}
+  SysUtils,
+  Horse,
+  Repo.Config,
+  Build,
+  Shutdown;
+
+const
+  DEFAULT_PORT = 9000;
+  // how long the running requests have to finish once the shutdown starts
+  SHUTDOWN_TIMEOUT_MS = 5000;
+
+{$R *.res}
+
+function Port: Integer;
+begin
+  Result := StrToIntDef(GetEnvironmentVariable('PORT'), DEFAULT_PORT);
+end;
+
+begin
+  Migrate;
+  Build.Configure;
+
+  // the HORSE_DAEMON define (project options) makes Listen return, with the server running
+  // in its own thread, so the main thread waits for the signal to stop it. The Debug mode has
+  // no range checks: horse 3.3.14 fails every request when built with them (-Cr)
+  THorse.Listen(Port);
+  WriteLn('{APPNAME} listening on http://localhost:', THorse.Port, ', database ', DatabaseFile);
+  WriteLn('Press Ctrl+C to stop');
+
+  WaitForShutdownSignal;
+
+  WriteLn('Shutting down, waiting up to ', SHUTDOWN_TIMEOUT_MS div 1000, 's for the running requests');
+  THorse.StopListenGraceful(SHUTDOWN_TIMEOUT_MS);
+  WriteLn('{APPNAME} stopped');
+end.

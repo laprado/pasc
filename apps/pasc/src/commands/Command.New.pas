@@ -9,7 +9,8 @@ unit Command.New;
 interface
 
 uses
-  Command.Interfaces;
+  Command.Interfaces,
+  Utils.Templates;
 
   /// <summary> This command creates a freepascal/lazarus project respecting a previously 
   /// organized folder structure so that it is easier to operate the project in vscode, 
@@ -17,6 +18,10 @@ uses
   ///
   /// With --workspace it creates a workspace instead: a repository with multiple apps and
   /// internal packages. Inside a workspace, --app and --package create its members.
+  ///
+  /// With --template=name it creates the app from a template, with its boss dependencies
+  /// installed: outside a workspace, a workspace with the app in apps/name; inside one, with
+  /// --app, the app in the apps folder of the workspace.
   /// </summary>
   /// <param name="ABuilder"> Command builder of the main application that will be used to
   /// output user instructions about the execution state of this command. </param>
@@ -100,7 +105,18 @@ uses
   /// output user instructions about the execution state of this command. </param>
   /// <param name="AWorkspaceDir">Workspace root folder. </param>
   /// <param name="AName">App name, used as folder and project name. </param>
-  procedure CreateWorkspaceApp(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string);
+  procedure CreateWorkspaceApp(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string); overload;
+
+  /// <summary> Creates an app member in the apps folder of the workspace from a template, with
+  /// its source and test files, and adds its executables and the paths ignored by the template
+  /// to the workspace .gitignore. The template dependencies are not installed. </summary>
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output user instructions about the execution state of this command. </param>
+  /// <param name="AWorkspaceDir">Workspace root folder. </param>
+  /// <param name="AName">App name, used as folder and project name. </param>
+  /// <param name="ATemplate">Template of the app. </param>
+  procedure CreateWorkspaceApp(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string;
+    const ATemplate: TTemplate); overload;
 
   /// <summary> Creates a lazarus package member in the packages folder of the workspace, with
   /// a sample unit in its src folder. </summary>
@@ -119,6 +135,7 @@ uses
   SysUtils,
   StrUtils,
   Command.Colors,
+  Command.Deps,
   Utils.Boss,
   Utils.Shell,
   Utils.Resources,
@@ -336,9 +353,30 @@ begin
     raise Exception.Create('There is already a member at ' + AMemberDir + '.');
 end;
 
-procedure CreateWorkspaceApp(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string);
+procedure IgnoreAppFiles(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string;
+  const AIgnore: TArray<string>);
 var
-  LAppDir, LGitIgnore: string;
+  LGitIgnore, LAppPath, LContent, LPath: string;
+begin
+  LGitIgnore := ConcatPaths([AWorkspaceDir, '.gitignore']);
+  if not FileExists(LGitIgnore) then
+    Exit;
+
+  OutputInfo(ABuilder, 'Updating', '.gitignore with the app executables');
+  LAppPath := '/' + WORKSPACE_APPS_DIR + '/' + AName + '/';
+  LContent :=
+    GetFileContent(LGitIgnore) +
+    '# ' + AName + ' executables' + LineEnding +
+    LAppPath + AName + LineEnding +
+    LAppPath + 'tests/Test' + AName + LineEnding;
+  for LPath in AIgnore do
+    LContent := LContent + LAppPath + LPath + LineEnding;
+  SaveFileContent(LGitIgnore, LContent);
+end;
+
+procedure CreateWorkspaceApp(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string); overload;
+var
+  LAppDir: string;
 begin
   LAppDir := ConcatPaths([AWorkspaceDir, WORKSPACE_APPS_DIR, AName]);
   CheckMemberName(LAppDir, AName);
@@ -346,18 +384,23 @@ begin
   OutputInfo(ABuilder, 'Creating', 'app folders at ' + ConcatPaths([WORKSPACE_APPS_DIR, AName]));
   ForceDirectories(ConcatPaths([LAppDir, 'src']));
   CreateProjectFiles(ABuilder, AName, LAppDir);
+  IgnoreAppFiles(ABuilder, AWorkspaceDir, AName, []);
+end;
 
-  LGitIgnore := ConcatPaths([AWorkspaceDir, '.gitignore']);
-  if FileExists(LGitIgnore) then
-  begin
-    OutputInfo(ABuilder, 'Updating', '.gitignore with the app executables');
-    SaveFileContent(
-      LGitIgnore,
-      GetFileContent(LGitIgnore) +
-      '# ' + AName + ' executables' + LineEnding +
-      '/' + WORKSPACE_APPS_DIR + '/' + AName + '/' + AName + LineEnding +
-      '/' + WORKSPACE_APPS_DIR + '/' + AName + '/tests/Test' + AName + LineEnding);
-  end;
+procedure CreateWorkspaceApp(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string;
+  const ATemplate: TTemplate); overload;
+var
+  LAppDir: string;
+begin
+  LAppDir := ConcatPaths([AWorkspaceDir, WORKSPACE_APPS_DIR, AName]);
+  CheckMemberName(LAppDir, AName);
+
+  OutputInfo(ABuilder, 'Creating', 'app at ' + ConcatPaths([WORKSPACE_APPS_DIR, AName]) +
+    ' from the ' + ATemplate.Name + ' template');
+  ForceDirectories(ConcatPaths([LAppDir, 'src']));
+  OutputInfo(ABuilder, 'Creating', IntToStr(Length(WriteTemplateFiles(ATemplate, LAppDir, AName))) +
+    ' source and test files');
+  IgnoreAppFiles(ABuilder, AWorkspaceDir, AName, ATemplate.Ignore);
 end;
 
 procedure CreateWorkspacePackage(ABuilder: ICommandBuilder; const AWorkspaceDir, AName: string);
@@ -379,10 +422,64 @@ begin
     StringReplace(GetResource('packageunitpas'), '{PACKAGENAME}', AName, [rfReplaceAll]));
 end;
 
+/// <summary> Returns the value of the --template option from the raw options. pascli resets
+/// the value of an option when another option follows it, so CheckOption is not used for it.
+/// The short form is kept by pascli without its dash: -t=web is t=web. See laprado/pascli#1.
+/// </summary>
+function TemplateOptionValue(ABuilder: ICommandBuilder; out AValue: string): Boolean;
+var
+  LRawOption: string;
+begin
+  Result := False;
+  AValue := '';
+  for LRawOption in ABuilder.GetRawOptions do
+    if StartsText('--template=', LRawOption) or StartsText('t=', LRawOption) then
+    begin
+      AValue := Copy(LRawOption, Pos('=', LRawOption) + 1, Length(LRawOption));
+      Exit(True);
+    end;
+end;
+
+/// <summary> Creates the app from the template, outside a workspace in a new one, and
+/// installs the template dependencies. A failed install keeps the app, which only needs the
+/// dependencies installed again. </summary>
+procedure NewTemplateApp(ABuilder: ICommandBuilder; const AName, ATemplateName: string;
+  AWorkspaceDir: string);
+var
+  LTemplate: TTemplate;
+begin
+  // pascli does not validate the options not allowed with an option that has a value (pascli#1)
+  if ABuilder.CheckOption('workspace') or ABuilder.CheckOption('package') then
+    raise Exception.Create('The option --template can not be used with --workspace or --package.');
+  if Trim(ATemplateName) = '' then
+    raise Exception.Create('The option --template requires a template name: ' + GetTemplateNames + '.');
+  if not FindTemplate(ATemplateName, LTemplate) then
+    raise Exception.Create(
+      'Template "' + ATemplateName + '" not found. Available templates: ' + GetTemplateNames + '.');
+
+  if AWorkspaceDir = '' then
+    CreateWorkspace(ABuilder, AName, AWorkspaceDir)
+  else if not ABuilder.CheckOption('app') then
+    raise Exception.Create(
+      'Inside the workspace ' + AWorkspaceDir + ' use --app with --template to create an app.');
+
+  CreateWorkspaceApp(ABuilder, AWorkspaceDir, AName, LTemplate);
+  SetCurrentDir(AWorkspaceDir);
+
+  if not InstallDependencies(ABuilder, AWorkspaceDir, LTemplate.Dependencies) then
+  begin
+    OutputError(ABuilder, 'Warning',
+      'the dependencies were not installed, install them in ' + AWorkspaceDir + ' with: pasc deps ' +
+      string.Join('; pasc deps ', LTemplate.Dependencies));
+    Exit;
+  end;
+  OutputInfo(ABuilder, 'App', 'was created successfully, try pasc build and pasc test.');
+end;
+
 procedure NewCommand(ABuilder: ICommandBuilder);
 var
   LProjectDir: string = '';
-  LWorkspaceDir, LName: string;
+  LWorkspaceDir, LName, LTemplateName: string;
 begin
   ABuilder.GetParsedArguments;
 
@@ -401,6 +498,12 @@ begin
   LName := ABuilder.Arguments[0].Value;
   LWorkspaceDir := FindWorkspaceRoot(GetCurrentDir);
   try
+    if TemplateOptionValue(ABuilder, LTemplateName) then
+    begin
+      NewTemplateApp(ABuilder, LName, LTemplateName, LWorkspaceDir);
+      Exit;
+    end;
+
     if ABuilder.CheckOption('workspace') then
     begin
       if LWorkspaceDir <> '' then
@@ -438,8 +541,19 @@ begin
     on E: Exception do
     begin
       ABuilder.OutputColor(E.Message, ABuilder.ColorTheme.Error);
+      // a script creating a project stops here instead of using a half created one
+      ExitCode := 1;
     end;
   end;
+end;
+
+function TemplatesHelp: string;
+var
+  LTemplate: TTemplate;
+begin
+  Result := '';
+  for LTemplate in GetTemplates do
+    Result := Result + #13#10 + LTemplate.Name + ': ' + LTemplate.Description;
 end;
 
 procedure Registry(ABuilder: ICommandBuilder);
@@ -454,16 +568,19 @@ begin
       'on a simple free pascal template.'#13#10 +
       'With --workspace it creates a workspace for multiple apps and packages, '#13#10 +
       'whose members are created with --app or --package inside it.'#13#10 +
+      'With --template it creates an app from a template, in a new workspace, '#13#10 +
+      'or in the current one with --app, and installs its dependencies.'#13#10 +
       'Ex: pasc new <project name>'#13#10 +
       'Ex: pasc new <workspace name> --workspace'#13#10 +
-      'Ex: pasc new <app name> --app',
+      'Ex: pasc new <app name> --app'#13#10 +
+      'Ex: pasc new <app name> --template=cli',
       @NewCommand,
       [ccRequiresOneArgument])
       .AddOption(
         'w',
         'workspace',
         'creates a workspace with a pasc.json manifest, apps and packages folders.',
-        ['a', 'p'])
+        ['a', 'p', 't'])
       .AddOption(
         'a',
         'app',
@@ -473,7 +590,14 @@ begin
         'p',
         'package',
         'creates a lazarus package in the packages folder of the current workspace.',
-        ['w', 'a'])
+        ['w', 'a', 't'])
+      .AddOption(
+        't',
+        'template',
+        'creates an app from a template:' + TemplatesHelp + #13#10 +
+        'Ex: --template=web',
+        ['w', 'p'],
+        ocRequiresValue)
       .AddOption(
         'v',
         'verbose',

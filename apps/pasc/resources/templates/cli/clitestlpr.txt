@@ -1,0 +1,45 @@
+program Test{APPNAME};
+
+{$mode objfpc}{$H+}
+
+uses
+  Classes, 
+  SysUtils,
+  consoletestrunner, 
+  TestCommandGreet,
+  TestCommandCount;
+
+{$R *.res}
+
+type
+
+  { TMyTestRunner }
+
+  TMyTestRunner = class(TTestRunner)
+  protected
+  // override the protected methods of TTestRunner to customize its behavior
+  end;
+
+procedure InitializeHeapFileName;
+var
+  HeapFileName: string;
+begin
+  {$IF DECLARED(UseHeapTrace)}
+  HeapFileName := ConcatPaths([ExtractFilePath(ParamStr(0)), 'heap.trc']);
+  if FileExists(HeapFileName) then
+    DeleteFile(HeapFileName);
+  SetHeapTraceOutput(HeapFileName);
+  {$ENDIF}
+end;
+
+var
+  Application: TMyTestRunner;
+
+begin
+  InitializeHeapFileName;
+  Application := TMyTestRunner.Create(nil);
+  Application.Initialize;
+  Application.Title := 'FPCUnit Console test runner';
+  Application.Run;
+  Application.Free;
+end.

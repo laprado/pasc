@@ -1,0 +1,95 @@
+/// <summary> The payloads of the customers routes: what a request sends (input) and what a
+/// response returns (output), with their JSON conversion. </summary>
+unit Customers.Payloads;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  SysUtils,
+  fpjson,
+  Repo.Models;
+
+type
+
+  /// <summary> The body of POST /customers. </summary>
+  TCustomerInput = record
+    Name: string;
+    Email: string;
+    /// <summary> Reads the input from a JSON body. Raises EPayloadError if it is not a JSON
+    /// object. </summary>
+    class function FromJSON(const ABody: string): TCustomerInput; static;
+  end;
+
+  /// <summary> A customer returned by the routes. </summary>
+  TCustomerOutput = record
+    Id: Integer;
+    Name: string;
+    Email: string;
+    class function FromModel(const ACustomer: TCustomer): TCustomerOutput; static;
+    function ToJSON: TJSONObject;
+  end;
+
+  TCustomerOutputs = TArray<TCustomerOutput>;
+
+  /// <summary> A body that can not be read. </summary>
+  EPayloadError = class(Exception);
+
+  /// <summary> Returns the outputs as a JSON array. </summary>
+  function CustomersToJSON(const ACustomers: TCustomerOutputs): string;
+
+implementation
+
+uses
+  jsonparser;
+
+class function TCustomerInput.FromJSON(const ABody: string): TCustomerInput;
+var
+  LData: TJSONData = nil;
+begin
+  try
+    LData := GetJSON(ABody);
+  except
+    on E: Exception do
+      raise EPayloadError.Create('the body is not a valid JSON: ' + E.Message);
+  end;
+
+  try
+    if not (LData is TJSONObject) then
+      raise EPayloadError.Create('the body must be a JSON object');
+    Result.Name := TJSONObject(LData).Get('name', '');
+    Result.Email := TJSONObject(LData).Get('email', '');
+  finally
+    LData.Free;
+  end;
+end;
+
+class function TCustomerOutput.FromModel(const ACustomer: TCustomer): TCustomerOutput;
+begin
+  Result.Id := ACustomer.Id;
+  Result.Name := ACustomer.Name;
+  Result.Email := ACustomer.Email;
+end;
+
+function TCustomerOutput.ToJSON: TJSONObject;
+begin
+  Result := TJSONObject.Create(['id', Id, 'name', Name, 'email', Email]);
+end;
+
+function CustomersToJSON(const ACustomers: TCustomerOutputs): string;
+var
+  LArray: TJSONArray;
+  LCustomer: TCustomerOutput;
+begin
+  LArray := TJSONArray.Create;
+  try
+    for LCustomer in ACustomers do
+      LArray.Add(LCustomer.ToJSON);
+    Result := LArray.AsJSON;
+  finally
+    LArray.Free;
+  end;
+end;
+
+end.

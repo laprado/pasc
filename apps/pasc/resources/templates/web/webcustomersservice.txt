@@ -1,0 +1,92 @@
+/// <summary> The business code of the customers feature. The routes resolve the service from
+/// the request, and the service depends on the repository contract, so a test creates it with
+/// a fake repository. Its methods are virtual, so a route test can replace it the same way.
+/// </summary>
+unit Customers.Service;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  SysUtils,
+  Repo.Customers,
+  Customers.Payloads;
+
+type
+
+  /// <summary> The customer does not exist. </summary>
+  ECustomerNotFound = class(Exception);
+
+  /// <summary> The input breaks a business rule. </summary>
+  ECustomerInvalid = class(Exception);
+
+  TCustomerService = class
+  private
+    FRepository: TCustomerRepository;
+  public
+    /// <summary> Creates the service, which owns and frees the repository. </summary>
+    constructor Create(ARepository: TCustomerRepository);
+    destructor Destroy; override;
+    /// <summary> Returns every customer. </summary>
+    function List: TCustomerOutputs; virtual;
+    /// <summary> Returns the customer with the id. Raises ECustomerNotFound. </summary>
+    function Get(const AId: Integer): TCustomerOutput; virtual;
+    /// <summary> Validates the input and creates the customer. Raises ECustomerInvalid.
+    /// </summary>
+    function Add(const AInput: TCustomerInput): TCustomerOutput; virtual;
+  end;
+
+implementation
+
+uses
+  Repo.Models;
+
+constructor TCustomerService.Create(ARepository: TCustomerRepository);
+begin
+  inherited Create;
+  FRepository := ARepository;
+end;
+
+destructor TCustomerService.Destroy;
+begin
+  FRepository.Free;
+  inherited Destroy;
+end;
+
+function TCustomerService.List: TCustomerOutputs;
+var
+  LCustomer: TCustomer;
+begin
+  Result := [];
+  for LCustomer in FRepository.All do
+    Result := Result + [TCustomerOutput.FromModel(LCustomer)];
+end;
+
+function TCustomerService.Get(const AId: Integer): TCustomerOutput;
+var
+  LCustomer: TCustomer;
+begin
+  if not FRepository.Find(AId, LCustomer) then
+    raise ECustomerNotFound.CreateFmt('customer %d not found', [AId]);
+  Result := TCustomerOutput.FromModel(LCustomer);
+end;
+
+function TCustomerService.Add(const AInput: TCustomerInput): TCustomerOutput;
+var
+  LCustomer: TCustomer;
+begin
+  if Trim(AInput.Name) = '' then
+    raise ECustomerInvalid.Create('the name is required');
+  if Pos('@', AInput.Email) < 2 then
+    raise ECustomerInvalid.Create('the email is not valid');
+  if FRepository.FindByEmail(Trim(AInput.Email), LCustomer) then
+    raise ECustomerInvalid.Create('there is already a customer with this email');
+
+  LCustomer.Id := 0;
+  LCustomer.Name := Trim(AInput.Name);
+  LCustomer.Email := Trim(AInput.Email);
+  Result := TCustomerOutput.FromModel(FRepository.Insert(LCustomer));
+end;
+
+end.

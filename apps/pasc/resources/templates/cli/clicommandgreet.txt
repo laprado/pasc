@@ -1,0 +1,59 @@
+/// <summary> Example of a command with an argument and an option: greets the given name.
+/// </summary>
+unit Command.Greet;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  Command.Interfaces;
+
+  /// <summary> Returns the greeting for the given name, in upper case when AShout is true.
+  /// The business code stays out of the command, so it is tested without the builder.
+  /// </summary>
+  function GreetMessage(const AName: string; const AShout: Boolean): string;
+
+  /// <summary> Greets the name given as argument. With --shout the greeting is in upper case.
+  /// </summary>
+  procedure GreetCommand(ABuilder: ICommandBuilder);
+
+  /// <summary> Registry the greet command and its options in the command builder. </summary>
+  procedure Registry(ABuilder: ICommandBuilder);
+
+implementation
+
+uses
+  SysUtils;
+
+function GreetMessage(const AName: string; const AShout: Boolean): string;
+begin
+  if Trim(AName) = '' then
+    raise EArgumentException.Create('a name is required');
+
+  Result := 'Hello, ' + Trim(AName) + '!';
+  if AShout then
+    Result := UpperCase(Result);
+end;
+
+procedure GreetCommand(ABuilder: ICommandBuilder);
+begin
+  ABuilder.OutputColor(
+    GreetMessage(ABuilder.GetParsedArguments[0].Value, ABuilder.CheckOption('shout')) + LineEnding,
+    ABuilder.ColorTheme.Value);
+end;
+
+procedure Registry(ABuilder: ICommandBuilder);
+begin
+  ABuilder
+    .AddCommand(
+      'greet',
+      'Greets the given name.'#13#10 +
+      'Ex: ' + ABuilder.ExeName + ' greet World'#13#10 +
+      'Ex: ' + ABuilder.ExeName + ' greet World --shout',
+      @GreetCommand,
+      [ccRequiresOneArgument])
+      .AddOption('s', 'shout', 'shows the greeting in upper case.', []);
+end;
+
+end.

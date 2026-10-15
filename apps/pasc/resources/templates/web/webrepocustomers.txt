@@ -1,0 +1,146 @@
+/// <summary> The customers repository. TCustomerRepository is the contract the services depend
+/// on, TSQLiteCustomerRepository implements it with SQLite. A test replaces it with a subclass
+/// that keeps the customers in memory. </summary>
+unit Repo.Customers;
+
+{$MODE DELPHI}{$H+}
+
+interface
+
+uses
+  sqlite3conn,
+  Repo.Models;
+
+type
+
+  /// <summary> The customers repository contract: every method is virtual and abstract, a
+  /// subclass implements them. </summary>
+  TCustomerRepository = class
+  public
+    /// <summary> Returns every customer, ordered by name. </summary>
+    function All: TCustomers; virtual; abstract;
+    /// <summary> Finds a customer by its id. Returns false if there is none. </summary>
+    function Find(const AId: Integer; out ACustomer: TCustomer): Boolean; virtual; abstract;
+    /// <summary> Finds a customer by its email. Returns false if there is none. </summary>
+    function FindByEmail(const AEmail: string; out ACustomer: TCustomer): Boolean; virtual; abstract;
+    /// <summary> Inserts the customer and returns it with the new id. </summary>
+    function Insert(const ACustomer: TCustomer): TCustomer; virtual; abstract;
+  end;
+
+  /// <summary> The customers repository on SQLite, with a connection of its own. </summary>
+  TSQLiteCustomerRepository = class(TCustomerRepository)
+  private
+    FConnection: TSQLite3Connection;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function All: TCustomers; override;
+    function Find(const AId: Integer; out ACustomer: TCustomer): Boolean; override;
+    function FindByEmail(const AEmail: string; out ACustomer: TCustomer): Boolean; override;
+    function Insert(const ACustomer: TCustomer): TCustomer; override;
+  end;
+
+implementation
+
+uses
+  SysUtils,
+  sqldb,
+  Repo.Config;
+
+function ReadCustomer(AQuery: TSQLQuery): TCustomer;
+begin
+  Result.Id := AQuery.FieldByName('id').AsInteger;
+  Result.Name := AQuery.FieldByName('name').AsString;
+  Result.Email := AQuery.FieldByName('email').AsString;
+end;
+
+constructor TSQLiteCustomerRepository.Create;
+begin
+  inherited Create;
+  FConnection := NewConnection;
+end;
+
+destructor TSQLiteCustomerRepository.Destroy;
+begin
+  FConnection.Free;
+  inherited Destroy;
+end;
+
+function TSQLiteCustomerRepository.All: TCustomers;
+var
+  LQuery: TSQLQuery;
+begin
+  Result := [];
+  LQuery := TSQLQuery.Create(nil);
+  try
+    LQuery.DataBase := FConnection;
+    LQuery.SQL.Text := 'select id, name, email from customers order by name';
+    LQuery.Open;
+    while not LQuery.EOF do
+    begin
+      Result := Result + [ReadCustomer(LQuery)];
+      LQuery.Next;
+    end;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TSQLiteCustomerRepository.Find(const AId: Integer; out ACustomer: TCustomer): Boolean;
+var
+  LQuery: TSQLQuery;
+begin
+  ACustomer := Default(TCustomer);
+  LQuery := TSQLQuery.Create(nil);
+  try
+    LQuery.DataBase := FConnection;
+    LQuery.SQL.Text := 'select id, name, email from customers where id = :id';
+    LQuery.ParamByName('id').AsInteger := AId;
+    LQuery.Open;
+    Result := not LQuery.EOF;
+    if Result then
+      ACustomer := ReadCustomer(LQuery);
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TSQLiteCustomerRepository.FindByEmail(const AEmail: string; out ACustomer: TCustomer): Boolean;
+var
+  LQuery: TSQLQuery;
+begin
+  ACustomer := Default(TCustomer);
+  LQuery := TSQLQuery.Create(nil);
+  try
+    LQuery.DataBase := FConnection;
+    LQuery.SQL.Text := 'select id, name, email from customers where email = :email';
+    LQuery.ParamByName('email').AsString := AEmail;
+    LQuery.Open;
+    Result := not LQuery.EOF;
+    if Result then
+      ACustomer := ReadCustomer(LQuery);
+  finally
+    LQuery.Free;
+  end;
+end;
+
+function TSQLiteCustomerRepository.Insert(const ACustomer: TCustomer): TCustomer;
+var
+  LQuery: TSQLQuery;
+begin
+  LQuery := TSQLQuery.Create(nil);
+  try
+    LQuery.DataBase := FConnection;
+    LQuery.SQL.Text := 'insert into customers (name, email) values (:name, :email)';
+    LQuery.ParamByName('name').AsString := ACustomer.Name;
+    LQuery.ParamByName('email').AsString := ACustomer.Email;
+    LQuery.ExecSQL;
+    Result := ACustomer;
+    Result.Id := FConnection.GetInsertID;
+    FConnection.Transaction.Commit;
+  finally
+    LQuery.Free;
+  end;
+end;
+
+end.

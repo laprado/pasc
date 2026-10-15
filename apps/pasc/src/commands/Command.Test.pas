@@ -21,6 +21,9 @@ type
     Ran: Boolean;
     Passed: Integer;
     Failed: Integer;
+    /// <summary> Why the tests did not run, like the first error of the compiler, or empty.
+    /// </summary>
+    Error: string;
   end;
 
   /// <summary> This command searches for a fpcunit test project in the current folder or in
@@ -54,7 +57,26 @@ type
   /// <param name="ABuildMode"> Build mode passed to lazbuild, empty for the default one.
   /// </param>
   function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string;
-    const ABuildMode: string = ''): Boolean;
+    const ABuildMode: string = ''): Boolean; overload;
+
+  /// <summary> Builds the test project like the other BuildTestProject, and returns in AError
+  /// the first error of the compiler when the build fails, for a summary. </summary>
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output the build result in case of failure. </param>
+  /// <param name="AProjectFile"> Test project file (.lpr or .lpi). </param>
+  /// <param name="ABuildMode"> Build mode passed to lazbuild, empty for the default one.
+  /// </param>
+  /// <param name="AError"> Returns the first error, or empty if the build succeeded. </param>
+  function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile, ABuildMode: string;
+    out AError: string): Boolean; overload;
+
+  /// <summary> Returns the first error in the output of lazbuild, the line that explains the
+  /// failure among the hints and the lazbuild messages, like
+  /// TestCommandGreet.pas(11,3) Fatal: Can't find unit Command.Interfaces used by TestCommandGreet.
+  /// The folder of the file and the message number are removed. Returns empty if there is no
+  /// error. </summary>
+  /// <param name="AOutput"> Output of lazbuild. </param>
+  function FirstBuildError(const AOutput: string): string;
 
   /// <summary> Registry a test command using the command builder from pascli. </summary>
   /// <param name="ABuilder"> Command builder of the main application that will be used to
@@ -106,8 +128,62 @@ begin
       'The test project must be based on the fpcunit test framework.');
 end;
 
+function FirstBuildError(const AOutput: string): string;
+var
+  LLines: TStringList;
+  LLine, LMessage, LFile: string;
+  LPos: Integer;
+
+  function WithoutNumber(const AText: string): string;
+  var
+    LStart, LEnd: Integer;
+  begin
+    // Fatal: (10022) Can't find unit -> Fatal: Can't find unit
+    Result := AText;
+    LStart := Pos(': (', Result);
+    if LStart = 0 then
+      Exit;
+    LEnd := PosEx(') ', Result, LStart);
+    if (LEnd > 0) and (StrToIntDef(Copy(Result, LStart + 3, LEnd - LStart - 3), -1) >= 0) then
+      Delete(Result, LStart + 2, LEnd - LStart);
+  end;
+
+begin
+  Result := '';
+  LLines := TStringList.Create;
+  try
+    LLines.Text := AOutput;
+    // a message of the compiler for a source file: file(line,column) Fatal: or Error:
+    for LLine in LLines do
+    begin
+      LPos := Pos(') Fatal: ', LLine);
+      if LPos = 0 then
+        LPos := Pos(') Error: ', LLine);
+      if (LPos = 0) or (RPos('(', Copy(LLine, 1, LPos)) = 0) then
+        Continue;
+      LFile := Copy(LLine, 1, LPos);
+      LMessage := Copy(LLine, LPos + 2, MaxInt);
+      Exit(ExtractFileName(LFile) + ' ' + WithoutNumber(LMessage));
+    end;
+    // otherwise the first error, like one of lazbuild itself
+    for LLine in LLines do
+      if StartsStr('Fatal: ', Trim(LLine)) or StartsStr('Error: ', Trim(LLine)) then
+        Exit(WithoutNumber(Trim(LLine)));
+  finally
+    LLines.Free;
+  end;
+end;
+
 function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile: string;
   const ABuildMode: string = ''): Boolean;
+var
+  LError: string;
+begin
+  Result := BuildTestProject(ABuilder, AProjectFile, ABuildMode, LError);
+end;
+
+function BuildTestProject(ABuilder: ICommandBuilder; const AProjectFile, ABuildMode: string;
+  out AError: string): Boolean;
 var
   LProjectFile, LOutput: string;
   LExitCode: Integer = 0;
@@ -125,14 +201,19 @@ begin
     on E: Exception do
     begin
       ABuilder.Output('lazbuild does not exist or its path is not configured in the PATH environment.');
+      AError := 'lazbuild was not found';
       ExitCode := 1;
       Exit(False);
     end;
   end;
 
+  AError := '';
   Result := (LExitCode = 0) and (not ContainsText(LOutput, 'Error: '));
   if not Result then
   begin
+    AError := FirstBuildError(LOutput);
+    if AError = '' then
+      AError := 'the build failed';
     ABuilder.Output('Error building the test project ' + LProjectFile + ':' + #13#10 + LOutput);
     ExitCode := IfThen(LExitCode = 0, 1, LExitCode);
   end;
@@ -166,8 +247,9 @@ var
   LTested: Integer = 0;
   LPassed: Integer = 0;
   LFailed: Integer = 0;
-  LNotRun: string = '';
+  LNotRun: TArray<string> = [];
   LWithoutTests: string = '';
+  LLine: string;
 begin
   LCurrentDir := GetCurrentDir;
   try
@@ -186,7 +268,7 @@ begin
       LResult := RunTests(ABuilder, True);
       if not LResult.Ran then
       begin
-        LNotRun := LNotRun + IfThen(LNotRun <> '', ', ', '') + LMember.Name;
+        LNotRun := LNotRun + [LMember.Name + IfThen(LResult.Error <> '', ': ' + LResult.Error, '')];
         Continue;
       end;
       Inc(LTested);
@@ -198,12 +280,13 @@ begin
   end;
 
   OutputInfo(ABuilder, 'Workspace', Format('%d members tested: %d passed, %d failed.', [LTested, LPassed, LFailed]));
-  if LNotRun <> '' then
-    OutputError(ABuilder, 'Not run', LNotRun);
+  // one line per member, with the reason
+  for LLine in LNotRun do
+    OutputError(ABuilder, 'Not run', LLine);
   if LWithoutTests <> '' then
     OutputInfo(ABuilder, 'No tests', LWithoutTests);
 
-  if (LFailed > 0) or (LNotRun <> '') then
+  if (LFailed > 0) or (Length(LNotRun) > 0) then
     ExitCode := 1;
 end;
 
@@ -248,13 +331,21 @@ begin
   if ABuild then
   begin
     LProjectFile := FindTestProject(ABuilder);
-    if (LProjectFile = '') or (not BuildTestProject(ABuilder, LProjectFile)) then
+    if LProjectFile = '' then
+    begin
+      Result.Error := 'no test project';
+      Exit;
+    end;
+    if not BuildTestProject(ABuilder, LProjectFile, '', Result.Error) then
       Exit;
   end;
 
   LExeFile := GetTestExecutable(ABuilder);
   if LExeFile.IsEmpty then
+  begin
+    Result.Error := 'the test executable was not found';
     Exit;
+  end;
   LExeOnly := ExtractFileName(LExeFile);
   LXmlFile := ChangeFileExt(LExeFile, '.xml');
   LTestCase := '';
@@ -267,6 +358,7 @@ begin
   begin
     ABuilder.Output('Test execution failed with exit code ' + IntToStr(LExitCode));
     ABuilder.Output('Output from test execution:' + #13#10 + LOutput);
+    Result.Error := 'the tests stopped with exit code ' + IntToStr(LExitCode);
     ExitCode := LExitCode;
     Exit;
   end;

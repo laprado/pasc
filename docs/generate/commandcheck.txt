@@ -16,18 +16,30 @@ In a @link(workspace workspace) it checks every member and its test project; out
   @item(A folder with units (.pas or .pp) that is not in the search paths (OtherUnitFiles) of every build mode, with the modes that miss it. Hidden, lib, backup, modules and tests folders are not checked, and neither are folders with a project or package of their own, like samples.)
   @item(For a package, a unit in its folders that is not in the Files of the .lpk. The main unit of the package, which lazbuild writes from the Files, is not checked.)
   @item(For a package, a file in the Files of the .lpk that no longer exists, like the sample unit of @link(commandnew pasc new --package) after it was deleted.)
+  @item(A search path (OtherUnitFiles or IncludeFiles) that does not exist, with the build modes that have it. Entries with macros, like $(ProjOutDir), are not checked. When the path is under the modules folder, the warning suggests @link(commanddeps pasc deps) to install the dependencies.)
 )
+
+In a workspace, it also checks the modules folder, where @link(commanddeps pasc deps) installs the dependencies of every member:
+
+@unorderedList(
+  @item(A modules folder out of place, under apps, packages or a member, usually moved there by accident or installed from the wrong folder.)
+  @item(No modules folder at the root while boss.json has dependencies.)
+  @item(Modules recorded in boss-lock.json that are not in the modules folder.)
+)
+
+Without these checks, a moved or missing modules folder goes unnoticed while the old .ppu files are still in lib, and later shows up only as a @html(<code>Can't find unit</code>) in the lazbuild output.
 
 @preformatted(
      Warning packages/core/src/core.rules.pas is not in the Files of core.lpk, add it to the package
      Warning apps/app/extra has units but is not in the search paths of app.lpi (Release), add extra to its OtherUnitFiles
-       Check 2 problems found
+     Warning apps/cmd/tests/Testcmd.lpi (Default): search paths ../../../modules/github_com_HashLoad_horse/src, ../../../modules/github_com_laprado_pascli/src do not exist, run pasc deps to install the dependencies
+       Check 3 problems found
 )
 
 The exit code is 1 when there is any problem, so it can be used in a CI. Some folders hold units that are deliberately not compiled, like platform specific code: they are reported too, and can be ignored.
 
 @section(1 SecSecond Build and test)
 
-In a workspace, @link(commandbuild pasc build) and @link(commandtest pasc test) show the same warnings before calling lazbuild, without stopping. Before that, they add the folders with units under src of each app to its search paths and to those of its test project, as @link(commanddeps pasc deps) does, so those folders are never reported.
+In a workspace, @link(commandbuild pasc build) and @link(commandtest pasc test) show the same warnings before calling lazbuild, without stopping. When the build of a member fails, the summary of pasc test shows the first error of the compiler, like @html(<code>Not run cmd: TestCommandGreet.pas(11,3) Fatal: Can't find unit Command.Interfaces used by TestCommandGreet</code>). Before that, they add the folders with units under src of each app to its search paths and to those of its test project, as @link(commanddeps pasc deps) does, so those folders are never reported.
 
 @table( @rowHead( @cell(Next @link(commandclean Clean Command)) ) )

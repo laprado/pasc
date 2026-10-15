@@ -30,6 +30,12 @@ type
     procedure TestCheckPackageUnlistedUnit;
     procedure TestCheckPackageMissingFile;
     procedure TestCheckPackageNumberedItems;
+    procedure TestCheckProjectMissingSearchPath;
+    procedure TestCheckProjectMissingModules;
+    procedure TestCheckProjectMissingIncludePath;
+    procedure TestCheckWorkspaceModulesOutOfPlace;
+    procedure TestCheckWorkspaceModulesMissing;
+    procedure TestCheckWorkspaceModulesMissingFromLock;
   end;
 
 implementation
@@ -223,6 +229,98 @@ begin
     '<Count Value="1"/><Item1><Filename Value="src/core.hello.pas"/></Item1>'), FDir);
 
   AssertEquals('a numbered item is a listed file. Check: ' + string.Join(', ', LWarnings), 0, Length(LWarnings));
+end;
+
+procedure TTestUtilsCheck.TestCheckProjectMissingSearchPath;
+var
+  LWarnings: TArray<string>;
+begin
+  CreateUnit('src/Main.pas');
+
+  LWarnings := CheckProject(CreateApp('src;gone', 'src;gone;old'), FDir);
+
+  AssertEquals('one warning per set of build modes. Check: ' + string.Join(' | ', LWarnings), 2, Length(LWarnings));
+  AssertEquals('app.lpi (Debug, Release): search path gone does not exist', LWarnings[0]);
+  AssertEquals('app.lpi (Release): search path old does not exist', LWarnings[1]);
+end;
+
+procedure TTestUtilsCheck.TestCheckProjectMissingModules;
+var
+  LWarnings: TArray<string>;
+begin
+  CreateUnit('src/Main.pas');
+
+  LWarnings := CheckProject(CreateApp('src;modules/a/src;modules/b/src', 'src;modules/a/src;modules/b/src'), FDir);
+
+  AssertEquals('the missing modules in a single warning. Check: ' + string.Join(' | ', LWarnings), 1, Length(LWarnings));
+  AssertEquals('app.lpi (Debug, Release): search paths modules/a/src, modules/b/src do not exist, ' +
+    'run pasc deps to install the dependencies', LWarnings[0]);
+end;
+
+procedure TTestUtilsCheck.TestCheckProjectMissingIncludePath;
+var
+  LWarnings: TArray<string>;
+  LProject: string;
+begin
+  CreateUnit('src/Main.pas');
+  LProject := ConcatPaths([FDir, 'app.lpi']);
+  SaveFileContent(LProject,
+    '<?xml version="1.0" encoding="UTF-8"?><CONFIG><ProjectOptions/><CompilerOptions><SearchPaths>' +
+    '<IncludeFiles Value="$(ProjOutDir);inc"/><OtherUnitFiles Value="src"/>' +
+    '</SearchPaths></CompilerOptions></CONFIG>');
+
+  LWarnings := CheckProject(LProject, FDir);
+
+  AssertEquals('the include path without the macro. Check: ' + string.Join(' | ', LWarnings), 1, Length(LWarnings));
+  AssertEquals('app.lpi: search path inc does not exist', LWarnings[0]);
+end;
+
+procedure TTestUtilsCheck.TestCheckWorkspaceModulesOutOfPlace;
+var
+  LWarnings: TArray<string>;
+begin
+  ForceDirectories(ConcatPaths([FDir, 'modules']));
+  ForceDirectories(ConcatPaths([FDir, 'apps', 'modules']));
+  ForceDirectories(ConcatPaths([FDir, 'packages', 'core', 'modules']));
+
+  LWarnings := CheckWorkspaceModules(FDir, [ConcatPaths([FDir, 'apps', 'web']), ConcatPaths([FDir, 'packages', 'core'])]);
+
+  AssertEquals('each modules folder out of place. Check: ' + string.Join(' | ', LWarnings), 2, Length(LWarnings));
+  AssertTrue(LWarnings[0], StartsStr('apps/modules is out of place', LWarnings[0]));
+  AssertTrue(LWarnings[1], StartsStr('packages/core/modules is out of place', LWarnings[1]));
+end;
+
+procedure TTestUtilsCheck.TestCheckWorkspaceModulesMissing;
+var
+  LWarnings: TArray<string>;
+begin
+  SaveFileContent(ConcatPaths([FDir, 'boss.json']), '{"name": "ws", "dependencies": {}}');
+  AssertEquals('nothing to install without dependencies', 0, Length(CheckWorkspaceModules(FDir, [])));
+
+  SaveFileContent(ConcatPaths([FDir, 'boss.json']), '{"name": "ws", "dependencies": {"github.com/HashLoad/horse": "^3.0.0"}}');
+
+  LWarnings := CheckWorkspaceModules(FDir, []);
+
+  AssertEquals(1, Length(LWarnings));
+  AssertEquals('boss.json has dependencies but there is no modules folder at the root of the workspace, ' +
+    'run pasc deps to install them', LWarnings[0]);
+end;
+
+procedure TTestUtilsCheck.TestCheckWorkspaceModulesMissingFromLock;
+var
+  LWarnings: TArray<string>;
+begin
+  ForceDirectories(ConcatPaths([FDir, 'modules', 'github_com_HashLoad_horse']));
+  SaveFileContent(ConcatPaths([FDir, 'boss-lock.json']),
+    '{"installedModules": {' +
+    '"github.com/hashload/horse": {"name": "github_com_HashLoad_horse"},' +
+    '"github.com/laprado/pascli": {"name": "github_com_laprado_pascli"}}}');
+
+  LWarnings := CheckWorkspaceModules(FDir, []);
+
+  AssertEquals(1, Length(LWarnings));
+  AssertTrue('should name the module missing. Check: ' + LWarnings[0],
+    StartsStr('boss-lock.json records modules that are not in modules: github_com_laprado_pascli. Run pasc deps', LWarnings[0]));
 end;
 
 initialization

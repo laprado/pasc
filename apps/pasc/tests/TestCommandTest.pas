@@ -32,6 +32,7 @@ type
     procedure TestGetTestExecutable;
     procedure TestCommandTestExitCodeOnFailure;
     procedure TestCommandTestExitCodeOnSuccess;
+    procedure TestFirstBuildError;
   end;
 
 implementation
@@ -183,6 +184,24 @@ begin
   ExitCode := 0;
 
   AssertEquals('exit code should be 0 when all tests pass. Check: ' + MockOutputCaptured, 0, LExitCode);
+end;
+
+procedure TTestCommandTest.TestFirstBuildError;
+begin
+  // the compiler error among the hints and the lazbuild messages
+  AssertEquals('TestCommandGreet.pas(11,3) Fatal: Can''t find unit Command.Interfaces used by TestCommandGreet',
+    FirstBuildError(
+      'Hint: (lazarus) Missing state file of TestRunner' + LineEnding +
+      'Param[1]="-MObjFPC"' + LineEnding +
+      '/ws/apps/cmd/tests/TestCommandGreet.pas(11,3) Fatal: (10022) Can''t find unit Command.Interfaces used by TestCommandGreet' + LineEnding +
+      'Fatal: (1018) Compilation aborted' + LineEnding +
+      'Error: (lazbuild) Failed compiling of project "/ws/apps/cmd/tests/Testcmd.lpi"'));
+  AssertEquals('an error of the compiler for a file', 'Main.pas(3,1) Error: Identifier not found "x"',
+    FirstBuildError('/ws/src/Main.pas(3,1) Error: (5000) Identifier not found "x"'));
+  AssertEquals('an error of lazbuild itself', 'Error: (lazbuild) Invalid Lazarus directory "": directory lcl not found',
+    FirstBuildError('Hint: (lazbuild) Primary config path' + LineEnding +
+      'Error: (lazbuild) Invalid Lazarus directory "": directory lcl not found'));
+  AssertEquals('no error', '', FirstBuildError('Hint: (lazarus) nothing to do'));
 end;
 
 initialization

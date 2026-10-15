@@ -12,4 +12,13 @@ Example:
   pasc build HelloWorld.lpi
 )
 
+Without an argument it builds the project in the current folder (the .lpi, the .lpk of a package or the .lpr). A folder builds the project found in it. At the root of a @link(workspace workspace) it builds every member, packages before the members that require them:
+
+@longCode(
+  pasc build
+  pasc build apps/cli
+)
+
+The options @html(<code>--debug</code>) and @html(<code>--release</code>) choose the build mode.
+
 @table( @rowHead( @cell(Next @link(commandclean Clean Command)) ) )

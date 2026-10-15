@@ -65,4 +65,15 @@ It initializes the boss in the project folder allowing it to install dependencie
 
 
 
+@section(1 SecSecond Workspace)
+
+With @html(<code>--workspace</code>) the command creates a @link(workspace workspace) instead: a pasc.json manifest, the apps and packages folders, git and boss at the root. Inside a workspace, @html(<code>--app</code>) and @html(<code>--package</code>) create its members:
+
+@longCode(
+  pasc new repo --workspace
+  cd repo
+  pasc new cli --app
+  pasc new core --package
+)
+
 @table( @rowHead( @cell(Next @link(commandtest Test Command)) ) )

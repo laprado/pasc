@@ -69,7 +69,7 @@ Example for test project with a specific suite:
 
 Output:
 
-@image(docs/generate/command_watch_1_gray.jpg)
+@image(command_watch_1_gray.jpg)
 
 This example will build the test project found on current folder or in tests subfolder and output build information and also a test report limited to the TTestUtilsShell class.
 

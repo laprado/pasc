@@ -14,6 +14,7 @@ uses
   Command.Clean,
   Command.Colors,
   Command.Deps,
+  Command.Docs,
   Command.Install,
   Command.New,
   Command.Test,
@@ -61,6 +62,7 @@ begin
     Command.Build.Registry(PascApp.CommandBuilder);
     Command.Clean.Registry(PascApp.CommandBuilder);
     Command.Deps.Registry(PascApp.CommandBuilder);
+    Command.Docs.Registry(PascApp.CommandBuilder);
     Command.Usage.Registry(PascApp.CommandBuilder);
     Command.Install.Registry(PascApp.CommandBuilder);
     Command.New.Registry(PascApp.CommandBuilder);

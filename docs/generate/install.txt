@@ -1,55 +1,46 @@
 @title(Install)
 @shorttitle(Install)
 
-Pasc is a standalone executable application and it is simple to install.
+Pasc is a standalone executable. Release binaries are published for Linux and Windows (x86_64); on other platforms, such as macOS, build it from the sources.
+
+@section(3 SecFirst With mise (recommended))
+
+@html(<a href="https://mise.jdx.dev">mise</a>) installs pasc from the GitHub releases, and also upgrades and uninstalls it:
+
+@longCode(
+  mise use -g github:laprado/pasc
+  mise upgrade github:laprado/pasc
+)
 
 @section(3 SecSecond Manual installation)
 
-From the @html(<a href="https://github.com/leandro-lprsoft/pasc/releases">releases</a>) page download a "pasc-...zip" file according to your platform. Extract its contents and run the following command:
+From the @html(<a href="https://github.com/laprado/pasc/releases/latest">latest release</a>) download the zip for your platform and @code(pasc_checksums.txt), check the zip against it and extract it to a folder in your PATH. On Linux:
+
 @longCode(
-  ./pasc install
+  curl -fsSLO https://github.com/laprado/pasc/releases/latest/download/pasc-linux-amd64.zip
+  curl -fsSLO https://github.com/laprado/pasc/releases/latest/download/pasc_checksums.txt
+  sha256sum -c --ignore-missing pasc_checksums.txt
+  unzip pasc-linux-amd64.zip -d ~/.local/bin
 )
 
-@bold(Pasc) will install itself on user's home folder creating a subfolder named .pasc and adding it to the path to make pasc visible when using the terminal app. It may be necessary to restart the terminal app for the changes take effect. Type pasc from the terminal app to check if it is working.
+On Windows, the README has the same steps for PowerShell. The checksums file is published for the releases after 1.2.1.
 
-@section(3 SecFourth Build it from the sources)
+@section(3 SecThird Build it from the sources)
 
-You may clone the repo and build it. Open a terminal and choose a folder to clone the repo and type the following commands:
+You need @bold(FPC) 3.2.2, @bold(Lazarus) 4.x (for lazbuild), @html(<a href="https://github.com/HashLoad/boss">boss</a>) 3.x and git:
 
 @longCode(
-  git clone https://github.com/leandro-lprsoft/pasc.git
+  git clone https://github.com/laprado/pasc.git
   cd pasc
+  boss install
+  lazbuild apps/pasc/pasc.lpi --build-mode=Release
 )
 
-Now you need to install project dependencies. If you have boss installed use the following command:
+The executable is @code(apps/pasc/pasc) (pasc.exe on Windows). Copy it to a folder in your PATH.
 
-@longCode(
-  boss update
-)
+@section(3 SecFourth Upgrading from pasc install)
 
-If you don't have boss installed you need to download them manually using the following commands:
-
-@longCode(
-  mkdir modules
-  cd modules
-  git clone https://github.com/leandro-lprsoft/pascli.git
-)
-
-Now you can build it from the project folder:
-
-@longCode(
-  lazbuild pasc.lpi --build-mode=release
-  ./pasc install
-)
-
-@note(
-You may need to run the command with elevation of privilege for MacOS or Linux.
-
-Pasc may not be accessible after install on Linux, you may need to run the following command:
-@longCode(source ~/.profile)
-
-Close and open your terminal to the command take effect.
-)
+Versions up to 1.2.1 installed themselves with @code(pasc install), copying pasc to ~/.pasc and changing the PATH. That command is deprecated, see @link(commandinstall Install Command): it shows how to remove an old install.
 
 @section(1 SecFifth Test pasc)
 
@@ -59,19 +50,6 @@ To see if pasc is working type the following:
   pasc help new
 )
 
-You should see an output like this:
-
-@longCode(
-pasc version 1.0.6
-
-Usage: pasc new <project file name>
-
-Creates a new free pascal program.
-From the current path create a subfolder with the given project name,
-initialize git, initialize the boss dependency manager, create build
-and debug support files for use with vscode and create a project based
-on a simple free pascal template.
-Ex: pasc new <project name>  
-)
+It shows the version and the usage of the new command.
 
 @table( @rowHead( @cell(Next @link(quickstart Quick start)) ) )

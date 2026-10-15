@@ -3,7 +3,7 @@
 
 @section(1 SecFirst Description)
 
-The purpose of this command is to display an aligned and colored output to make it easier to follow the test results. For it to work, there must be a previously compiled test project in a subfolder called "tests". This project needs to be of type fpcunit framework. If the project was created with the command @bold(new) from @bold(pasc), and if the test project was created with the command @bold(add --tests) from @bold(pasc), then these requirements must already be met.
+The purpose of this command is to display an aligned and colored output to make it easier to follow the test results. For it to work, there must be a test project in a subfolder called "tests", which the command builds with lazbuild before running it. This project needs to be of type fpcunit framework. If the project was created with the command @bold(new) from @bold(pasc), and if the test project was created with the command @bold(add --tests) from @bold(pasc), then these requirements must already be met.
 
 This command accepts a "--test-case" option that can be given the name of a test class (suite) or the name of a specific method so that it is possible to reduce the focus of what is currently being tested.
 
@@ -15,7 +15,7 @@ Example:Another important feature is the output about possible memory leaks repo
 
 Check the output for pasc as an example:
 
-@image(docs/generate/command_test_1_gray.jpg)
+@image(command_test_1_gray.jpg)
 
 In the example above, we can see the execution time for each test, we can see an OK in green and the name of the test. We can see an example of a test that fails in section @link(commandadd Add Command), and also a memory leak too.
 
@@ -26,7 +26,7 @@ Example for a single suite:
 
 Check the output for pasc TTestUtilsShell class as an example:
 
-@image(docs/generate/command_test_2_gray.jpg)
+@image(command_test_2_gray.jpg)
 
 We can see a shorter output with tests results only for the selected class.
 
@@ -57,6 +57,8 @@ end;
 @note(
 For some reason, some platforms supported by FreePascal are able to indicate the source code line/file of the leak, but others can only say that a leak has occurred. As of the time of writing this documentation, for platforms aarch64/darwin and aarch64/linux are not displaying the leak source line of code/file.
 )
+
+At the root of a @link(workspace workspace) the command runs the tests of every member with a tests folder and prints a summary. The exit code is 1 when the tests could not run or any of them failed.
 
 @section(1 SecSecond Tasks)
 

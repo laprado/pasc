@@ -1,0 +1,45 @@
+@title(Workspace)
+@shorttitle(Workspace)
+
+@section(1 SecFirst Description)
+
+A workspace is a repository with several apps and internal Lazarus packages, sharing a single boss manifest. Inside the same repository code is shared by Lazarus, with packages referenced by relative path; boss handles only the external dependencies.
+
+@preformatted(
+repo/
+├── pasc.json            # workspace manifest: { "members": ["packages/*", "apps/*"] }
+├── boss.json            # the only boss.json: external dependencies of the whole workspace
+├── boss-lock.json
+├── modules/             # installed by boss at the root, shared by every member
+├── packages/
+│   └── core/            # core.lpk, src/, tests/
+└── apps/
+    └── cli/             # cli.lpi, cli.lpr, src/, tests/
+)
+
+@section(1 SecSecond Creating a workspace)
+
+@longCode(
+  pasc new repo --workspace
+  cd repo
+  pasc new core --package
+  pasc new cli --app
+)
+
+Members are created in the right folder from anywhere inside the workspace, without a boss.json or git of their own. An existing project is converted with @html(<code>pasc add --workspace</code>), see @link(commandadd Add Command).
+
+@section(1 SecThird Using packages)
+
+Inside a member, @html(<code>pasc add --package=core</code>) makes its .lpi or .lpk, and its test project, require the package by a relative path, so lazbuild builds it without registering it in the IDE.
+
+@section(1 SecFourth Building and testing)
+
+At the root of the workspace @code(pasc build) builds every member, packages before the members that require them, and @code(pasc test) runs the tests of every member and prints a summary. @code(pasc build apps/cli) builds a single member.
+
+@section(1 SecFifth Dependencies)
+
+@code(pasc deps) runs boss install at the root, even inside a member, and writes the module folders to the search paths of every member, relative to each one; see @link(commanddeps Deps Command). Use the same boss version everywhere: the module folder names depend on it.
+
+A library used by other repositories through boss must stay in its own repository, since boss versions by repository tag. Code used only inside the workspace goes to packages.
+
+@table( @rowHead( @cell(Next @link(commandadd Add Command)) ) )

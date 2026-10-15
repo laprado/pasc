@@ -24,6 +24,7 @@ uses
   TestCommandBuild,
   TestCommandClean,
   TestCommandDeps,
+  TestCommandDocs,
   TestCommandInstall,
   TestCommandNew,
   TestCommandTest, 

@@ -175,6 +175,16 @@ begin
   AssertTrue(
     'Output should contain keyword: "documentation resources added with success" ',
     ContainsText(MockOutputCaptured, 'documentation resources added with success')); 
+  AssertTrue(
+    'the introduction page should be created',
+    FileExists(ConcatPaths([FWorkingFolder, 'docs', 'generate', 'introduction.txt'])));
+  // pasc docs replaces the script, and pasdoc 1.0 has its own style
+  AssertFalse(
+    'build.ps1 should not be created',
+    FileExists(ConcatPaths([FWorkingFolder, 'docs', 'generate', 'build.ps1'])));
+  AssertFalse(
+    'custom.css should not be created',
+    FileExists(ConcatPaths([FWorkingFolder, 'docs', 'generate', 'custom.css'])));
 end;
 
 procedure TTestCommandAdd.TestCommandAddPackage;

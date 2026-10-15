@@ -21,4 +21,4 @@ Example to clean without asking for confirmation:
   pasc clean --force
 )
 
-@table( @rowHead( @cell(Next @link(commandhelp Help Command)) ) )
+@table( @rowHead( @cell(Next @link(commanddeps Deps Command)) ) )

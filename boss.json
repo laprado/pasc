@@ -7,6 +7,6 @@
 	"browsingpath": "",
 	"projects": [],
 	"dependencies": {
-		"github.com/laprado/pascli": "^1.7.4"
+		"github.com/laprado/pascli": "^1.7.5"
 	}
 }

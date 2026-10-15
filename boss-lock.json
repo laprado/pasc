@@ -1,11 +1,11 @@
 {
 	"hash": "d41d8cd98f00b204e9800998ecf8427e",
-	"updated": "2026-10-15T11:10:13-03:00",
+	"updated": "2026-10-15T14:41:00-03:00",
 	"installedModules": {
 		"github.com/laprado/pascli": {
 			"name": "github_com_laprado_pascli",
-			"version": "1.7.4",
-			"hash": "739f7af38cf5b97fa22f4d797a66ec43",
+			"version": "1.7.5",
+			"hash": "f92c30dcadda94ca6fef254b50ea0c06",
 			"artifacts": {}
 		}
 	}

@@ -44,8 +44,8 @@ uses
   SysUtils,
   StrUtils,
   Math,
+  Command.Check,
   Command.Colors,
-  Command.Deps,
   Utils.Output,
   Utils.Shell,
   Utils.Workspace;
@@ -146,9 +146,9 @@ begin
     Exit;
   end;
 
+  PrepareWorkspace(ABuilder, AWorkspaceDir);
   for LMember in LMembers do
   begin
-    SyncMemberSources(ABuilder, AWorkspaceDir, LMember);
     OutputInfo(ABuilder, 'Building', ExtractRelativePath(
       IncludeTrailingPathDelimiter(AWorkspaceDir), LMember.ProjectFile));
     if not BuildProject(ABuilder, LMember.ProjectFile) then

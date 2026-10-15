@@ -1,0 +1,33 @@
+@title(Check)
+@shorttitle(Check)
+
+@section(1 SecFirst Description)
+
+Checks the projects and packages for units that lazbuild would not find. FPC does not search the unit folders recursively, and a package only compiles the units listed in its files, so these problems only show up later, as @html(<code>Can't find unit</code>) at the first uses that reaches the unit, after the build of every member before it.
+
+Example:
+@longCode(
+  pasc check
+)
+
+In a @link(workspace workspace) it checks every member and its test project; outside of one, the project in the current folder and its test project. Each problem is a warning with the path to add or to remove:
+
+@unorderedList(
+  @item(A folder with units (.pas or .pp) that is not in the search paths (OtherUnitFiles) of every build mode, with the modes that miss it. Hidden, lib, backup, modules and tests folders are not checked, and neither are folders with a project or package of their own, like samples.)
+  @item(For a package, a unit in its folders that is not in the Files of the .lpk. The main unit of the package, which lazbuild writes from the Files, is not checked.)
+  @item(For a package, a file in the Files of the .lpk that no longer exists, like the sample unit of @link(commandnew pasc new --package) after it was deleted.)
+)
+
+@preformatted(
+     Warning packages/core/src/core.rules.pas is not in the Files of core.lpk, add it to the package
+     Warning apps/app/extra has units but is not in the search paths of app.lpi (Release), add extra to its OtherUnitFiles
+       Check 2 problems found
+)
+
+The exit code is 1 when there is any problem, so it can be used in a CI. Some folders hold units that are deliberately not compiled, like platform specific code: they are reported too, and can be ignored.
+
+@section(1 SecSecond Build and test)
+
+In a workspace, @link(commandbuild pasc build) and @link(commandtest pasc test) show the same warnings before calling lazbuild, without stopping. Before that, they add the folders with units under src of each app to its search paths and to those of its test project, as @link(commanddeps pasc deps) does, so those folders are never reported.
+
+@table( @rowHead( @cell(Next @link(commandclean Clean Command)) ) )

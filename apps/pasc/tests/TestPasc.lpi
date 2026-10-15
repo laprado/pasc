@@ -87,6 +87,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="..\src\commands\Command.Licenses.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="..\src\commands\Command.New.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -104,6 +108,10 @@
       </Unit>
       <Unit>
         <Filename Value="TestCommandInstall.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="TestCommandLicenses.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>

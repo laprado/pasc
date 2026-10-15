@@ -44,5 +44,7 @@ lazres `
   .\templates\web\webtestcustomersservice.txt `
   .\templates\web\webtestfakerepository.txt `
   .\templates\web\webtestlpi.txt `
-  .\templates\web\webtestlpr.txt
+  .\templates\web\webtestlpr.txt `
+  ..\..\..\LICENSE `
+  ..\..\..\THIRD-PARTY-NOTICES.md
 Set-Location $StartDir

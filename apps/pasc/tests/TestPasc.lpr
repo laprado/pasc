@@ -29,6 +29,7 @@ uses
   TestCommandDeps,
   TestCommandDocs,
   TestCommandInstall,
+  TestCommandLicenses,
   TestCommandNew,
   TestCommandTest, 
   TestCommandWatch,

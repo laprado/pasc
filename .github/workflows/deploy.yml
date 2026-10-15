@@ -37,14 +37,14 @@
           echo "building main application..."
           lazbuild --lazarusdir="$LAZARUS_DIR" "apps/pasc/pasc.lpi" -B --build-mode=Release
           # -j keeps the executable at the root of the zip, as mise expects
-          zip -j ./assets/pasc-linux-amd64.zip ./apps/pasc/pasc
+          zip -j ./assets/pasc-linux-amd64.zip ./apps/pasc/pasc ./LICENSE ./THIRD-PARTY-NOTICES.md
 
       - name: Building (Windows)
         if: ${{ runner.os == 'Windows' }}
         run: |
           echo "building main application..."
           lazbuild --lazarusdir="$env:LAZARUS_DIR" "apps/pasc/pasc.lpi" -B --build-mode=Release --os=win64 --cpu=x86_64
-          Compress-Archive ./apps/pasc/pasc.exe ./assets/pasc-windows-amd64.zip
+          Compress-Archive ./apps/pasc/pasc.exe,./LICENSE,./THIRD-PARTY-NOTICES.md ./assets/pasc-windows-amd64.zip
 
       # artifacts are immutable since v4, so each OS uploads its own and the release merges them
       - uses: actions/upload-artifact@v4

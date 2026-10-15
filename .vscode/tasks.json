@@ -87,8 +87,8 @@
     {
       "label": "pasdoc: build documentation",
       "type": "shell",
-      "command": "./docs/generate/build.ps1",
-      "args": [],
+      "command": "./apps/pasc/pasc",
+      "args": ["docs"],
       "problemMatcher": []
     }
   ]

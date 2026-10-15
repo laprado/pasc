@@ -34,7 +34,7 @@
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
-            <OtherUnitFiles Value="src;src\commands"/>
+            <OtherUnitFiles Value="src;src/commands"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-$(BuildMode)"/>
           </SearchPaths>
           <CodeGeneration>
@@ -74,7 +74,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src\commands"/>
+      <OtherUnitFiles Value="src;src/commands"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)-$(BuildMode)"/>
     </SearchPaths>
     <Parsing>

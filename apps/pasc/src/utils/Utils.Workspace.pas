@@ -88,6 +88,20 @@ type
   function SyncModulePaths(const AProjectFile, AWorkspaceDir: string;
     const AModuleDirs: TArray<string>): Boolean;
 
+  /// <summary> Returns the folders under the src folder of a member, src included, that have
+  /// Pascal sources (.pas, .pp or .inc), sorted. lib and backup folders are not included.
+  /// Returns empty if the member has no src folder. </summary>
+  /// <param name="AMemberDir"> Member folder. </param>
+  function GetMemberSourceDirs(const AMemberDir: string): TArray<string>;
+
+  /// <summary> Adds the source folders missing from every OtherUnitFiles of a project, in all
+  /// its build modes, relative to the project and with / as separator. The existing entries are
+  /// kept, so it only adds. Returns true if the project file was changed. </summary>
+  /// <param name="AProjectFile"> .lpi file to update. </param>
+  /// <param name="ASourceDirs"> Absolute source folders, like the ones of
+  /// GetMemberSourceDirs. </param>
+  function AddSourcePaths(const AProjectFile: string; const ASourceDirs: TArray<string>): Boolean;
+
   /// <summary> Returns the .lpi of the test project of a member, or empty if the member has
   /// no test project. </summary>
   /// <param name="AMemberDir"> Member folder. </param>
@@ -437,8 +451,10 @@ begin
     if FindFirst(ConcatPaths([ADir, AllFilesMask]), faDirectory, LSearch) = 0 then
       try
         repeat
-          // hidden folders like .git have no sources
-          if ((LSearch.Attr and faDirectory) <> 0) and not StartsStr('.', LSearch.Name) then
+          // hidden folders like .git have no sources, lib has compiled units and backup has
+          // the copies of the Lazarus IDE
+          if ((LSearch.Attr and faDirectory) <> 0) and not StartsStr('.', LSearch.Name) and
+             not AnsiMatchText(LSearch.Name, ['lib', 'backup']) then
             LSubDirs.Add(ConcatPaths([ADir, LSearch.Name]));
         until FindNext(LSearch) <> 0;
       finally
@@ -574,6 +590,85 @@ begin
       for LModuleDir in AModuleDirs do
         LNewValue := LNewValue + IfThen(LNewValue <> '', ';', '') +
           StringReplace(ExtractRelativePath(LProjectDir, LModuleDir), '\', '/', [rfReplaceAll]);
+
+      if LNewValue <> LValue then
+      begin
+        Delete(LContent, LStart, LEnd - LStart);
+        Insert(LNewValue, LContent, LStart);
+        LEnd := LStart + Length(LNewValue);
+        Result := True;
+      end;
+      LOffset := LEnd + 1;
+    until False;
+  finally
+    LEntries.Free;
+  end;
+
+  if Result then
+    SaveFileContent(AProjectFile, LContent);
+end;
+
+function GetMemberSourceDirs(const AMemberDir: string): TArray<string>;
+var
+  LSrcDir: string;
+begin
+  Result := [];
+  LSrcDir := ConcatPaths([ExcludeTrailingPathDelimiter(ExpandFileName(AMemberDir)), 'src']);
+  if DirectoryExists(LSrcDir) then
+    AddSourceDirs(Result, LSrcDir);
+end;
+
+function AddSourcePaths(const AProjectFile: string; const ASourceDirs: TArray<string>): Boolean;
+const
+  TAG = '<OtherUnitFiles Value="';
+var
+  LContent, LProjectDir, LValue, LEntry, LResolved, LNewValue, LSourceDir: string;
+  LEntries: TStringList;
+  LStart, LEnd, LOffset: Integer;
+  LFound: Boolean;
+begin
+  LContent := GetFileContent(AProjectFile);
+  LProjectDir := IncludeTrailingPathDelimiter(ExtractFileDir(ExpandFileName(AProjectFile)));
+  Result := False;
+  LEntries := TStringList.Create;
+  try
+    LEntries.StrictDelimiter := True;
+    LEntries.Delimiter := ';';
+    LOffset := 1;
+    repeat
+      LStart := PosEx(TAG, LContent, LOffset);
+      if LStart = 0 then
+        Break;
+      Inc(LStart, Length(TAG));
+      LEnd := PosEx('"', LContent, LStart);
+      if LEnd = 0 then
+        Break;
+      LValue := Copy(LContent, LStart, LEnd - LStart);
+      LEntries.DelimitedText := LValue;
+      LNewValue := LValue;
+
+      for LSourceDir in ASourceDirs do
+      begin
+        LFound := False;
+        for LEntry in LEntries do
+        begin
+          if (Trim(LEntry) = '') or ContainsStr(LEntry, '$(') then
+            Continue;
+          LResolved := NormalizePath(Trim(LEntry));
+          if not IsAbsolutePath(LResolved) then
+            LResolved := ConcatPaths([LProjectDir, LResolved]);
+          if SameFileName(ExcludeTrailingPathDelimiter(ExpandFileName(LResolved)),
+            ExcludeTrailingPathDelimiter(ExpandFileName(LSourceDir))) then
+          begin
+            LFound := True;
+            Break;
+          end;
+        end;
+        if not LFound then
+          LNewValue := LNewValue + IfThen(Trim(LNewValue) <> '', ';', '') + StringReplace(
+            ExcludeTrailingPathDelimiter(ExtractRelativePath(LProjectDir, IncludeTrailingPathDelimiter(LSourceDir))),
+            '\', '/', [rfReplaceAll]);
+      end;
 
       if LNewValue <> LValue then
       begin

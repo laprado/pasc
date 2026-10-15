@@ -82,6 +82,7 @@ uses
   SysUtils,
   StrUtils,
   Math,
+  Command.Deps,
   Utils.Interfaces,
   Utils.Tests,
   Utils.Leak,
@@ -165,6 +166,7 @@ begin
   try
     for LMember in SortMembersByDependency(GetWorkspaceMembers(AWorkspaceDir)) do
     begin
+      SyncMemberSources(ABuilder, AWorkspaceDir, LMember);
       SetCurrentDir(LMember.Dir);
       if FindTestProject(ABuilder, True) = '' then
       begin

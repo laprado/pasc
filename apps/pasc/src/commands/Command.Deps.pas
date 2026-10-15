@@ -8,7 +8,8 @@ unit Command.Deps;
 interface
 
 uses
-  Command.Interfaces;
+  Command.Interfaces,
+  Utils.Workspace;
 
   /// <summary> This command runs boss install at the root of the current workspace, even when
   /// called inside a member, so the whole workspace has a single boss.json and modules folder.
@@ -34,6 +35,18 @@ uses
   /// <param name="AWorkspaceDir"> Workspace root folder. </param>
   procedure SyncWorkspaceModules(ABuilder: ICommandBuilder; const AWorkspaceDir: string);
 
+  /// <summary> Adds the folders under src of an app member that have Pascal sources, like the
+  /// feature folders of the web template, to the search paths of its project, in every build
+  /// mode, and of its test project. FPC does not search the unit folders recursively, so a new
+  /// folder would only fail later with "Can't find unit". Packages list their units in the .lpk
+  /// and are not changed. </summary>
+  /// <param name="ABuilder"> Command builder of the main application that will be used to
+  /// output the updated files. </param>
+  /// <param name="AWorkspaceDir"> Workspace root folder. </param>
+  /// <param name="AMember"> Workspace member. </param>
+  procedure SyncMemberSources(ABuilder: ICommandBuilder; const AWorkspaceDir: string;
+    const AMember: TWorkspaceMember);
+
   /// <summary> Runs boss install for each dependency at the workspace root, then updates the
   /// search paths of the members, like the deps command. Returns false, with the boss exit code
   /// in ExitCode, if boss failed. </summary>
@@ -53,8 +66,7 @@ uses
   Utils.Boss,
   Utils.IO,
   Utils.Output,
-  Utils.Shell,
-  Utils.Workspace;
+  Utils.Shell;
 
 function IsValidDependency(const ADependency: string): Boolean;
 var
@@ -117,6 +129,32 @@ begin
       IncludeTrailingPathDelimiter(AWorkspaceDir), AProjectFile));
 end;
 
+procedure SyncMemberSources(ABuilder: ICommandBuilder; const AWorkspaceDir: string;
+  const AMember: TWorkspaceMember);
+var
+  LSourceDirs: TArray<string>;
+  LTestProject: string;
+
+  procedure Sync(const AProjectFile: string);
+  begin
+    if AddSourcePaths(AProjectFile, LSourceDirs) then
+      OutputInfo(ABuilder, 'Updating', ExtractRelativePath(
+        IncludeTrailingPathDelimiter(AWorkspaceDir), AProjectFile) + ' with the src folders');
+  end;
+
+begin
+  if AMember.IsPackage then
+    Exit;
+  LSourceDirs := GetMemberSourceDirs(AMember.Dir);
+  if Length(LSourceDirs) = 0 then
+    Exit;
+
+  Sync(AMember.ProjectFile);
+  LTestProject := GetMemberTestProject(AMember.Dir);
+  if LTestProject <> '' then
+    Sync(LTestProject);
+end;
+
 procedure SyncWorkspaceModules(ABuilder: ICommandBuilder; const AWorkspaceDir: string);
 var
   LModuleDirs, LMissing: TArray<string>;
@@ -136,6 +174,7 @@ begin
     LTestProject := GetMemberTestProject(LMember.Dir);
     if LTestProject <> '' then
       SyncProject(ABuilder, AWorkspaceDir, LTestProject, LModuleDirs);
+    SyncMemberSources(ABuilder, AWorkspaceDir, LMember);
   end;
 
   LMissing := GetModulesMissingFromLock(AWorkspaceDir);

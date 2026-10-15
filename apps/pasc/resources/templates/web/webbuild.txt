@@ -1,7 +1,9 @@
 /// <summary> Registers the dependencies and the routes of the app. Every request gets its own
 /// services through horse Req.Services: a middleware adds a factory for each service, which
 /// creates it, with its repository, only when a route resolves it, and frees it with the
-/// request. To add a feature, register its service factory and its routes here.
+/// request. To add a feature, create its folder in src/features and register its service
+/// factory and its routes here; pasc build, pasc test and pasc deps add the new folder to the
+/// search paths of the app and of its test project.
 /// </summary>
 unit Build;
 

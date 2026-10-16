@@ -47,6 +47,11 @@ uses
   Utils.Tests,
   Utils.Workspace;
 
+const
+  // the folders of kcov --merge. A typed constant, because FPC 3.2.2 cuts each string of a
+  // for-in over a literal to the length of the first one
+  KCOV_MERGED_DIRS: array[0..1] of string = ('kcov-merged', 'merged-kcov-output');
+
 type
   /// <summary> Result of the coverage of a member. </summary>
   TMemberCoverage = record
@@ -344,7 +349,7 @@ begin
   LCoverageDir := ConcatPaths([AWorkspaceDir, COVERAGE_DIR]);
   if Length(LReportDirs) > 0 then
   begin
-    for LDir in ['kcov-merged', 'merged-kcov-output'] do
+    for LDir in KCOV_MERGED_DIRS do
       if DirectoryExists(ConcatPaths([LCoverageDir, LDir])) then
         DeleteDirectory(ConcatPaths([LCoverageDir, LDir]), False);
     try

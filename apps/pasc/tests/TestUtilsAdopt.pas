@@ -92,7 +92,7 @@ var
   LSearch: TSearchRec;
   LPath: string;
 begin
-  if FindFirst(ConcatPaths([ADir, AllFilesMask]), faAnyFile or faDirectory or faHidden, LSearch) = 0 then
+  if FindFirst(ConcatPaths([ADir, AllFilesMask]), faAnyFile or faDirectory, LSearch) = 0 then
     try
       repeat
         if (LSearch.Name = '.') or (LSearch.Name = '..') then
@@ -243,6 +243,8 @@ var
   LMoves: string = '';
 begin
   CreateApp('cli', True);
+  SaveFileContent(ConcatPaths([FRoot, 'cli.manifest']), '<assembly/>');
+  Commit;
 
   LPlan := AnalyzeAdoption(FRoot, False);
 
@@ -251,6 +253,8 @@ begin
   for LMove in LPlan.Moves do
     LMoves := LMoves + LMove.Source + '>' + LMove.Target + ';';
   AssertTrue('moves. Check: ' + LMoves, ContainsText(LMoves, 'cli.lpi>apps/cli/cli.lpi;'));
+  AssertTrue('the files named after the app, the last one too. Check: ' + LMoves,
+    ContainsText(LMoves, 'cli.manifest>apps/cli/cli.manifest;'));
   AssertTrue('moves. Check: ' + LMoves, ContainsText(LMoves, 'src>apps/cli/src;'));
   AssertTrue('moves. Check: ' + LMoves, ContainsText(LMoves, 'tests>apps/cli/tests;'));
   AssertTrue('a unit of the project at the root moves too. Check: ' + LMoves, ContainsText(LMoves, 'greet.pas>apps/cli/greet.pas;'));

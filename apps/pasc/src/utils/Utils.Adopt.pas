@@ -109,6 +109,10 @@ const
     '.git', '.gitignore', 'boss.json', 'boss-lock.json', 'modules', 'lib', 'backup',
     WORKSPACE_FILE, WORKSPACE_APPS_DIR, WORKSPACE_PACKAGES_DIR, '.gitattributes');
 
+  // files of the app named after it. A typed constant, because FPC 3.2.2 cuts each string of
+  // a for-in over a literal like ['.lpi', '.manifest'] to the length of the first one
+  APP_FILE_EXTENSIONS: array[0..4] of string = ('.lpi', '.lpr', '.res', '.ico', '.manifest');
+
 function Git(const ARoot: string; AParams: TArray<string>; out AOutput: string): Integer;
 var
   LExitCode: Integer = 0;
@@ -401,7 +405,7 @@ begin
   else
     APlan.Kind := akPlainApp;
 
-  for LExt in ['.lpi', '.lpr', '.res', '.ico', '.manifest'] do
+  for LExt in APP_FILE_EXTENSIONS do
     if FileExists(ConcatPaths([APlan.Root, APlan.Name + LExt])) then
       AddMove(APlan, APlan.Name + LExt);
   if DirectoryExists(ConcatPaths([APlan.Root, 'src'])) then

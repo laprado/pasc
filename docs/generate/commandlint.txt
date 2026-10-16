@@ -15,14 +15,21 @@ Building with warnings as errors (@html(<code>-Sew</code>)) does not work in a @
 @unorderedList(
   @item(It builds the project in the current folder and its test project, or at the root of a workspace every member and its test project, with @html(<code>lazbuild -B</code>), so every unit is compiled again and repeats its messages. The output goes to lib/lint, so the normal build is not touched.)
   @item(It keeps the messages for the sources of each member, its folders without lib, backup and modules, and leaves out the ones for the modules and for the units of FPC and Lazarus. Errors are always shown, wherever they are, because they stop the build. The messages of the linker, the assembler and the resources (9000 to 9999) are not about the code and are left out.)
-  @item(It shows each message as a file:line:col link, with its number, and a summary per member and for the workspace.)
+  @item(Like @link(commandtest pasc test) lists every test, it lists every source file of the member that was compiled: OK when it has no message, or the kind of its most severe message, with its messages below, by line. A failing message has the whole file:line:col, which editors and terminals turn into a link. Then a summary per member and for the workspace.)
 )
 
 @preformatted(
      Linting apps/cmd
-     Warning apps/cmd/src/commands/Command.Count.pas:38:19 (5093) function result variable of a managed type does not seem to be initialized
-        Hint apps/cmd/tests/TestOutput.pas:25:58 (5024) Parameter "AColor" not used
-        Lint apps/cmd: 0 errors, 1 warning, 0 notes, 1 hint, 1 failing
+          OK cmd.lpr
+     Warning src/commands/Command.Count.pas
+               apps/cmd/src/commands/Command.Count.pas:38:19 (5093) function result variable of a managed type does not seem to be initialized
+          OK src/commands/Command.Greet.pas
+          OK tests/Testcmd.lpr
+          OK tests/TestCommandCount.pas
+          OK tests/TestCommandGreet.pas
+        Hint tests/TestOutput.pas
+               25:58 (5024) Parameter "AColor" not used
+     Summary apps/cmd: 7 files, 5 OK, 1 warning, 1 hint, 1 failing
 )
 
 The exit code is 1 when a message fails or a project could not be built. Then the summary says why, like the first error of the compiler.

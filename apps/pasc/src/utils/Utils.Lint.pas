@@ -62,6 +62,19 @@ type
   /// <param name="AMemberDir"> Member folder. </param>
   function FilterMemberMessages(const AMessages: TLintMessages; const AMemberDir: string): TLintMessages;
 
+  /// <summary> Parses the output of lazbuild and returns the source files the compiler
+  /// compiled, from its lines (3104) Compiling file, without the resources. A relative file
+  /// name is resolved from ABaseDir. </summary>
+  /// <param name="AOutput"> Output of lazbuild. </param>
+  /// <param name="ABaseDir"> Folder of the project, for relative file names. </param>
+  function ParseCompiledFiles(const AOutput, ABaseDir: string): TArray<string>;
+
+  /// <summary> Returns the files that are sources of a member, the ones FilterMemberMessages
+  /// keeps, each one once. </summary>
+  /// <param name="AFiles"> Complete file names. </param>
+  /// <param name="AMemberDir"> Member folder. </param>
+  function FilterMemberFiles(const AFiles: TArray<string>; const AMemberDir: string): TArray<string>;
+
   /// <summary> Returns the default configuration: warnings fail, notes and hints are shown.
   /// </summary>
   function DefaultLintConfig: TLintConfig;
@@ -118,10 +131,19 @@ begin
   Result := KIND_NAMES[AKind];
 end;
 
+function ResolveFile(const AFileName, ABaseDir: string): string;
+begin
+  Result := SetDirSeparators(Trim(AFileName));
+  if not (StartsStr(PathDelim, Result) {$IF DEFINED(WINDOWS)} or (ExtractFileDrive(Result) <> ''){$ENDIF}) then
+    Result := ConcatPaths([ABaseDir, Result]);
+  // ExpandFileName also removes the ./ of the units found from the project folder
+  Result := ExpandFileName(Result);
+end;
+
 function ParseLine(const ALine, ABaseDir: string; out AMessage: TLintMessage): Boolean;
 var
   I, LPos, LOpen, LComma, LEnd: Integer;
-  LText, LFile: string;
+  LText: string;
 begin
   Result := False;
   AMessage := Default(TLintMessage);
@@ -141,11 +163,7 @@ begin
     AMessage.Column := StrToIntDef(Copy(ALine, LComma + 1, LPos - LComma - 1), -1);
     if (AMessage.Line < 0) or (AMessage.Column < 0) then
       Exit;
-    LFile := SetDirSeparators(Copy(ALine, 1, LOpen - 1));
-    if not (StartsStr(PathDelim, LFile) {$IF DEFINED(WINDOWS)} or (ExtractFileDrive(LFile) <> ''){$ENDIF}) then
-      LFile := ConcatPaths([ABaseDir, LFile]);
-    // ExpandFileName also removes the ./ of the units found from the project folder
-    AMessage.FileName := ExpandFileName(LFile);
+    AMessage.FileName := ResolveFile(Copy(ALine, 1, LOpen - 1), ABaseDir);
     AMessage.Kind := LABEL_KINDS[I];
 
     LText := Copy(ALine, LPos + Length(LABELS[I]) + 4, MaxInt);
@@ -183,9 +201,63 @@ begin
   end;
 end;
 
+function ParseCompiledFiles(const AOutput, ABaseDir: string): TArray<string>;
+const
+  COMPILING = 'Compiling ';
+var
+  LLines: TStringList;
+  LLine, LText: string;
+begin
+  Result := [];
+  LLines := TStringList.Create;
+  try
+    LLines.Text := AOutput;
+    for LLine in LLines do
+    begin
+      LText := Trim(LLine);
+      // (3104) Compiling file, with the message numbers of -vq
+      if StartsStr('(3104) ', LText) then
+        Delete(LText, 1, Length('(3104) '));
+      if not StartsStr(COMPILING, LText) or StartsStr(COMPILING + 'resource', LText) then
+        Continue;
+      Result := Result + [ResolveFile(Copy(LText, Length(COMPILING) + 1, MaxInt), ABaseDir)];
+    end;
+  finally
+    LLines.Free;
+  end;
+end;
+
 function IsInside(const AFileName, AFolder: string): Boolean;
 begin
   Result := StartsStr(IncludeTrailingPathDelimiter(ExpandFileName(AFolder)), ExpandFileName(AFileName));
+end;
+
+function IsMemberSource(const AFileName, AMemberDir: string): Boolean;
+var
+  LFolder: string;
+begin
+  Result := IsInside(AFileName, AMemberDir);
+  if Result then
+    for LFolder in SKIPPED_FOLDERS do
+      if IsInside(AFileName, ConcatPaths([AMemberDir, LFolder])) then
+        Exit(False);
+end;
+
+function FilterMemberFiles(const AFiles: TArray<string>; const AMemberDir: string): TArray<string>;
+var
+  LFile, LKept: string;
+  LKeep: Boolean;
+begin
+  Result := [];
+  for LFile in AFiles do
+  begin
+    LKeep := IsMemberSource(LFile, AMemberDir);
+    for LKept in Result do
+      if LKeep and SameFileName(LKept, LFile) then
+        LKeep := False;
+    if LKeep then
+      Result := Result + [LFile];
+  end;
 end;
 
 function SameMessage(const A, B: TLintMessage): Boolean;
@@ -197,20 +269,12 @@ end;
 function FilterMemberMessages(const AMessages: TLintMessages; const AMemberDir: string): TLintMessages;
 var
   LMessage, LKept: TLintMessage;
-  LFolder: string;
   LKeep: Boolean;
 begin
   Result := [];
   for LMessage in AMessages do
   begin
-    LKeep := LMessage.Kind = lkError;
-    if not LKeep and IsInside(LMessage.FileName, AMemberDir) then
-    begin
-      LKeep := True;
-      for LFolder in SKIPPED_FOLDERS do
-        if IsInside(LMessage.FileName, ConcatPaths([AMemberDir, LFolder])) then
-          LKeep := False;
-    end;
+    LKeep := (LMessage.Kind = lkError) or IsMemberSource(LMessage.FileName, AMemberDir);
     if not LKeep then
       Continue;
     for LKept in Result do

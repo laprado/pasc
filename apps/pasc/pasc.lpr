@@ -20,6 +20,7 @@ uses
   Command.Docs,
   Command.Install,
   Command.Licenses,
+  Command.Lint,
   Command.New,
   Command.Test,
   Command.Usage,
@@ -79,6 +80,7 @@ begin
     Command.Usage.Registry(PascApp.CommandBuilder);
     Command.Install.Registry(PascApp.CommandBuilder);
     Command.Licenses.Registry(PascApp.CommandBuilder);
+    Command.Lint.Registry(PascApp.CommandBuilder);
     Command.New.Registry(PascApp.CommandBuilder);
     Command.Test.Registry(PascApp.CommandBuilder);
     Command.Version.Registry(PascApp.CommandBuilder);

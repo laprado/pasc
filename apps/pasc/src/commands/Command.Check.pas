@@ -14,8 +14,9 @@ uses
   /// folder, and its test project: folders with units that are not in the search paths of every
   /// build mode, search paths that do not exist, and for a package the units that are not in
   /// its files and the files that no longer exist. In a workspace it also checks the modules
-  /// folder: out of place, missing, or without the modules of boss-lock.json. Each problem is a warning with the line to add or remove, and the exit code
-  /// is 1 when there is any. </summary>
+  /// folder: out of place, missing, or without the modules of boss-lock.json. Each problem is a
+  /// warning with the line to add or remove, and the exit code is 1 when there is any.
+  /// </summary>
   /// <param name="ABuilder"> Command builder of the main application that will be used to
   /// output the warnings. </param>
   procedure CheckCommand(ABuilder: ICommandBuilder);

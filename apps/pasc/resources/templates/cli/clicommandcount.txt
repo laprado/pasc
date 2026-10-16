@@ -35,6 +35,7 @@ begin
   if (ATo < 1) or (ATo > MAX_COUNT) then
     raise EArgumentOutOfRangeException.CreateFmt('the count must be between 1 and %d', [MAX_COUNT]);
 
+  Result := [];
   SetLength(Result, ATo);
   for I := 1 to ATo do
     Result[I - 1] := I;

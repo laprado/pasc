@@ -34,6 +34,7 @@ type
     FIsRunning: boolean;
     FExecuted: boolean;
     FMessage: string;
+    FOutput: string;
     FProcess: TProcess;
     FLock: TCriticalSection;
     FExitCode: Integer;
@@ -83,6 +84,11 @@ type
     /// of this message, so if it is called again its content will not be the same. </summary>
     function GetMessage: string;
 
+    /// <summary> Returns the whole output of the program, byte for byte as it wrote it. The
+    /// messages of GetMessage are split where each read of the pipe ended, which can be in the
+    /// middle of a line. </summary>
+    function GetOutput: string;
+
     /// <summary>Indicates that the thread is still running waiting for the program to finish.</summary>
     property IsRunning: Boolean read FIsRunning;
 
@@ -131,6 +137,8 @@ uses
 
 function CheckIfUserPressedCtrlC(const AFrom: string): Boolean;
 begin
+  // Ctrl+C halts, so the function only returns when it was not pressed
+  Result := False;
   {$IF DEFINED(UNIX)}
   if KeyPressed then            //  <--- CRT function to test key press
     if ReadKey = ^C then        // read the key pressed
@@ -205,6 +213,17 @@ var
   LStream: TStream = nil;
   LString: TStringList = nil;
 begin
+  if ABytesRead > 0 then
+  begin
+    FLock.Enter;
+    try
+      SetLength(FOutput, Length(FOutput) + ABytesRead);
+      Move(ABuffer, FOutput[Length(FOutput) - ABytesRead + 1], ABytesRead);
+    finally
+      FLock.Leave;
+    end;
+  end;
+
   LStream := TMemoryStream.Create;
   try
     LStream.Write(ABuffer, ABytesRead);
@@ -274,6 +293,16 @@ begin
   end;
 end;
 
+function TConsoleWatcher.GetOutput: string;
+begin
+  FLock.Enter;
+  try
+    Result := FOutput;
+  finally
+    FLock.Leave;
+  end;
+end;
+
 procedure TConsoleWatcher.SetMessage(const AMessage: string);
 begin
   FLock.Enter;
@@ -289,17 +318,6 @@ end;
 function ShellCommand(const AProgram: string; AParams: TArray<string>; out AExitCode: Integer): string;
 var
   LConsoleWatcher: TConsoleWatcher = nil;
-  LResult: string;
-
-  procedure GetOutput(AConsoleWatcher: TConsoleWatcher; out AResult: string);
-  var
-    LMessage: string;
-  begin
-    LMessage := AConsoleWatcher.GetMessage;
-    if LMessage <> '' then
-      AResult := AResult + LMessage;
-  end;
-
 begin
   LConsoleWatcher := TConsoleWatcher.Create(AProgram, AParams);
   try
@@ -308,16 +326,23 @@ begin
     while not LConsoleWatcher.Executed do
       Sleep(10);
 
-    LResult := '';
     while LConsoleWatcher.IsRunning do
     begin
-      GetOutput(LConsoleWatcher, LResult);
       Sleep(10);
       CheckIfUserPressedCtrlC('ShellCommand');
     end;
 
-    GetOutput(LConsoleWatcher, LResult);
-    Result := LResult;
+    // the whole output, not the messages: those are split where each read of the pipe ended,
+    // also in the middle of a line, which broke the file names of long outputs
+    Result := LConsoleWatcher.GetOutput;
+    // without the last line break, as the messages always were
+    if EndsStr(#10, Result) then
+      SetLength(Result, Length(Result) - 1);
+    if EndsStr(#13, Result) then
+      SetLength(Result, Length(Result) - 1);
+    if Result = '' then
+      // the error of a program that could not be executed is only in the messages
+      Result := LConsoleWatcher.GetMessage;
     
     LConsoleWatcher.Stop;
     LConsoleWatcher.WaitFor;

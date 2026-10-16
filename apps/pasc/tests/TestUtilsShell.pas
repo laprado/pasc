@@ -22,6 +22,9 @@ type
   published
     procedure TestShellCommand;
     procedure TestShellCommandNotExists;
+    {$IF DEFINED(UNIX)}
+    procedure TestShellCommandLongOutput;
+    {$ENDIF}
     procedure TestGetParametersFromDoubleQuotes;
     procedure TestGetParametersFromSingleQuotes;
   end;
@@ -66,6 +69,28 @@ begin
     LActual, 
     0 <> LExitCode);
 end;
+
+{$IF DEFINED(UNIX)}
+procedure TTestUtilsShell.TestShellCommandLongOutput;
+var
+  LLines: TStringList;
+  LExitCode: Integer = 0;
+  I: Integer;
+begin
+  // much more than one read of the pipe: the lines must not break where a read ends
+  LLines := TStringList.Create;
+  try
+    LLines.Text := ShellCommand('/bin/sh', ['-c',
+      'i=0; while [ $i -lt 300 ]; do echo "line $i ' + StringOfChar('x', 100) + '"; i=$((i+1)); done'], LExitCode);
+    AssertEquals('exit code', 0, LExitCode);
+    AssertEquals('every line once', 300, LLines.Count);
+    for I := 0 to LLines.Count - 1 do
+      AssertEquals('line ' + IntToStr(I), 'line ' + IntToStr(I) + ' ' + StringOfChar('x', 100), LLines[I]);
+  finally
+    LLines.Free;
+  end;
+end;
+{$ENDIF}
 
 procedure TTestUtilsShell.TestGetParametersFromDoubleQuotes;
 var

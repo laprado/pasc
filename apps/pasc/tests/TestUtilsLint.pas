@@ -23,6 +23,7 @@ type
     procedure TestParseCompilerMessagesSkipsToolchain;
     procedure TestFilterMemberMessages;
     procedure TestParseCompiledFiles;
+    procedure TestParsePackageWorkingDirectory;
     procedure TestDefaultLintConfig;
     procedure TestLoadLintConfig;
     procedure TestLoadLintConfigMember;
@@ -156,6 +157,38 @@ begin
   AssertEquals('the sources of the member, once. Check: ' + string.Join(' | ', LFiles), 2, Length(LFiles));
   AssertEquals(ConcatPaths([FDir, 'app.lpr']), LFiles[0]);
   AssertEquals('the ./ is removed', ConcatPaths([FDir, 'src', 'Main.pas']), LFiles[1]);
+end;
+
+procedure TTestUtilsLint.TestParsePackageWorkingDirectory;
+var
+  LOutput, LPackageDir: string;
+  LFiles: TArray<string>;
+  LMessages: TLintMessages;
+begin
+  // lazbuild compiles a package, like the LCL on Windows, in its folder, so its relative file
+  // names are not files of the member
+  LPackageDir := ConcatPaths([ExtractFileDir(FDir), 'lazarus', 'lcl', 'interfaces']);
+  LOutput :=
+    'Info: (lazarus) Working Directory="' + IncludeTrailingPathDelimiter(LPackageDir) + '"' + LineEnding +
+    '(3104) Compiling lcl.pas' + LineEnding +
+    '(3104) Compiling win32/interfaces.pp' + LineEnding +
+    'win32/win32int.pp(10,3) Note: (5025) Local variable "I" not used' + LineEnding +
+    'Info: (lazarus) Working Directory="' + IncludeTrailingPathDelimiter(FDir) + '"' + LineEnding +
+    '(3104) Compiling app.lpr' + LineEnding +
+    'src/Main.pas(3,1) Hint: (5024) Parameter "A" not used';
+
+  LFiles := ParseCompiledFiles(LOutput, FDir);
+  AssertEquals(3, Length(LFiles));
+  AssertEquals('from the folder of the package', ConcatPaths([LPackageDir, 'win32', 'interfaces.pp']), LFiles[1]);
+  AssertEquals('from the folder of the project', ConcatPaths([FDir, 'app.lpr']), LFiles[2]);
+  LFiles := FilterMemberFiles(LFiles, FDir);
+  AssertEquals('only the file of the project is in the member', 1, Length(LFiles));
+  AssertEquals(ConcatPaths([FDir, 'app.lpr']), LFiles[0]);
+
+  LMessages := ParseCompilerMessages(LOutput, FDir);
+  AssertEquals(2, Length(LMessages));
+  AssertEquals(ConcatPaths([LPackageDir, 'win32', 'win32int.pp']), LMessages[0].FileName);
+  AssertEquals(ConcatPaths([FDir, 'src', 'Main.pas']), LMessages[1].FileName);
 end;
 
 procedure TTestUtilsLint.TestDefaultLintConfig;

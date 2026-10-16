@@ -60,11 +60,21 @@ begin
   end;
   if EndsText('Testapp.lpi', AParams[High(AParams)]) then
     Result :=
+      '(3104) Compiling Testapp.lpr' + LineEnding +
+      '(3104) Compiling ' + ConcatPaths([ProjectDir, 'modules', 'lib', 'src', 'Lib.pas']) + LineEnding +
+      '(3104) Compiling TestMain.pas' + LineEnding +
+      '(9022) Compiling resource ' + ConcatPaths([ProjectDir, 'tests', 'lib', 'lint', 'units', 'Testapp.or']) + LineEnding +
       ConcatPaths([ProjectDir, 'tests', 'TestMain.pas']) + '(10,5) Hint: (5024) Parameter "AValue" not used' + LineEnding +
       ConcatPaths([ProjectDir, 'modules', 'lib', 'src', 'Lib.pas']) + '(1,1) Warning: (4105) Implicit string type conversion'
-  else if WithWarning then
-    Result := ConcatPaths([ProjectDir, '.', 'src', 'Main.pas']) + '(38,19) Warning: (5093) function result variable ' +
-      'of a managed type does not seem to be initialized';
+  else
+  begin
+    Result := '(3104) Compiling app.lpr' + LineEnding + '(3104) Compiling ./src/Main.pas' + LineEnding +
+      '(3104) Compiling ./src/Other.pas' + LineEnding;
+    if WithWarning then
+      Result := Result + ConcatPaths([ProjectDir, '.', 'src', 'Main.pas']) + '(38,19) Warning: (5093) function result ' +
+        'variable of a managed type does not seem to be initialized' + LineEnding +
+        ConcatPaths([ProjectDir, 'src', 'Main.pas']) + '(12,3) Note: (5025) Local variable "I" not used';
+  end;
 end;
 
 procedure TTestCommandLint.SetUp;
@@ -124,12 +134,21 @@ begin
       ConcatPaths([FProjectDir, 'app.lpi'])) and
     ContainsText(MockShellCapture, '-olib/lint/Testapp ' + ConcatPaths([FProjectDir, 'tests', 'Testapp.lpi'])));
   AssertTrue('should create the folder of the units', DirectoryExists(ConcatPaths([FProjectDir, 'lib', 'lint', 'units'])));
-  AssertTrue('should output the warning as a link. Check: ' + MockOutputCaptured,
+  AssertTrue('should output the file with its most severe message. Check: ' + MockOutputCaptured,
+    ContainsText(MockOutputCaptured, '    Warning src/Main.pas' + #13#10));
+  AssertTrue('should output the failing message as a link',
     ContainsText(MockOutputCaptured, 'src/Main.pas:38:19 (5093) function result variable'));
-  AssertTrue('should output the hint of the tests', ContainsText(MockOutputCaptured, 'tests/TestMain.pas:10:5 (5024)'));
+  AssertTrue('should output the other messages of the file with their kind, in order',
+    Pos('12:3 (5025) note: Local variable "I" not used', MockOutputCaptured) <
+    Pos('src/Main.pas:38:19', MockOutputCaptured));
+  AssertTrue('should output the hint of the tests without the path',
+    ContainsText(MockOutputCaptured, '       Hint tests/TestMain.pas' + #13#10 + StringOfChar(' ', 15) + '10:5 (5024)'));
+  AssertTrue('should output the files without messages', ContainsText(MockOutputCaptured, '         OK src/Other.pas'));
+  AssertTrue('should output the project files', ContainsText(MockOutputCaptured, '         OK tests/Testapp.lpr'));
   AssertFalse('should not output the modules', ContainsText(MockOutputCaptured, 'Lib.pas'));
+  AssertFalse('should not output the resources', ContainsText(MockOutputCaptured, 'Testapp.or'));
   AssertTrue('should output the counts',
-    ContainsText(MockOutputCaptured, 'app: 0 errors, 1 warning, 0 notes, 1 hint, 1 failing'));
+    ContainsText(MockOutputCaptured, 'app: 5 files, 3 OK, 1 warning, 1 note, 1 hint, 1 failing'));
 end;
 
 procedure TTestCommandLint.TestLintCommandOnlyHints;
@@ -137,7 +156,7 @@ begin
   WithWarning := False;
 
   AssertEquals('hints do not fail by default. Check: ' + MockOutputCaptured, 0, RunLint);
-  AssertTrue(ContainsText(MockOutputCaptured, '0 warnings, 0 notes, 1 hint, 0 failing'));
+  AssertTrue(ContainsText(MockOutputCaptured, '5 files, 4 OK, 1 hint, 0 failing'));
 end;
 
 procedure TTestCommandLint.TestLintCommandBuildFails;

@@ -22,6 +22,7 @@ type
     procedure TestParseCompilerMessagesRelativeFile;
     procedure TestParseCompilerMessagesSkipsToolchain;
     procedure TestFilterMemberMessages;
+    procedure TestParseCompiledFiles;
     procedure TestDefaultLintConfig;
     procedure TestLoadLintConfig;
     procedure TestLoadLintConfigMember;
@@ -137,6 +138,23 @@ begin
   AssertEquals(ConcatPaths([LMember, 'src', 'Build.pas']), LMessages[0].FileName);
   AssertEquals(ConcatPaths([LMember, 'tests', 'TestBuild.pas']), LMessages[1].FileName);
   AssertTrue(LMessages[2].Kind = lkError);
+end;
+
+procedure TTestUtilsLint.TestParseCompiledFiles;
+var
+  LFiles: TArray<string>;
+begin
+  LFiles := FilterMemberFiles(ParseCompiledFiles(
+    '(3104) Compiling app.lpr' + LineEnding +
+    '(3104) Compiling ./src/Main.pas' + LineEnding +
+    '(3104) Compiling ' + ConcatPaths([FDir, 'modules', 'lib', 'Lib.pas']) + LineEnding +
+    '(9022) Compiling resource ' + ConcatPaths([FDir, 'lib', 'app.or']) + LineEnding +
+    'Compiling ' + ConcatPaths([FDir, 'src', 'Main.pas']) + LineEnding +
+    '(3104) Compiling /usr/lib/fpc/src/rtl/objpas/sysutils.pp', FDir), FDir);
+
+  AssertEquals('the sources of the member, once. Check: ' + string.Join(' | ', LFiles), 2, Length(LFiles));
+  AssertEquals(ConcatPaths([FDir, 'app.lpr']), LFiles[0]);
+  AssertEquals('the ./ is removed', ConcatPaths([FDir, 'src', 'Main.pas']), LFiles[1]);
 end;
 
 procedure TTestUtilsLint.TestDefaultLintConfig;

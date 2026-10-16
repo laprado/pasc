@@ -18,7 +18,7 @@ type
   private
     FBuilder: ICommandBuilder;
     FCurrentDir, FProjectDir: string;
-    function RunLint: Integer;
+    function RunLint(const AArguments: TArray<string> = nil): Integer;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -27,6 +27,7 @@ type
     procedure TestLintCommand;
     procedure TestLintCommandOnlyHints;
     procedure TestLintCommandBuildFails;
+    procedure TestLintCommandReport;
   end;
 
 implementation
@@ -108,9 +109,9 @@ begin
   ExitCode := 0;
 end;
 
-function TTestCommandLint.RunLint: Integer;
+function TTestCommandLint.RunLint(const AArguments: TArray<string>): Integer;
 begin
-  FBuilder.UseArguments(['lint']);
+  FBuilder.UseArguments(['lint'] + AArguments);
   FBuilder.Parse;
   LintCommand(FBuilder);
   Result := ExitCode;
@@ -168,6 +169,21 @@ begin
     ContainsText(MockOutputCaptured, 'src/Main.pas:3:1 (5000) Identifier not found "x"'));
   AssertTrue('should say why it was not linted',
     ContainsText(MockOutputCaptured, 'app.lpi: Main.pas(3,1) Error: Identifier not found "x"'));
+end;
+
+procedure TTestCommandLint.TestLintCommandReport;
+var
+  LReport: string;
+begin
+  LReport := ConcatPaths([FProjectDir, 'reports', 'lint.json']);
+
+  AssertEquals('the exit code does not change', 1, RunLint(['--report=' + LReport]));
+
+  AssertTrue('should write the report, creating its folder', FileExists(LReport));
+  AssertEquals('the totals as JSON',
+    '{"files":5,"ok":3,"errors":0,"warnings":1,"notes":1,"hints":1,"ignored":0,"failing":1,"notLinted":0}',
+    StringReplace(StringReplace(StringReplace(GetFileContent(LReport), ' ', '', [rfReplaceAll]),
+      #10, '', [rfReplaceAll]), #13, '', [rfReplaceAll]));
 end;
 
 initialization

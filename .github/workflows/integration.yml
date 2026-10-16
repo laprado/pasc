@@ -85,10 +85,11 @@ jobs:
           (cd "${template}app" && "$pasc" check && "$pasc" lint && "$pasc" build && "$pasc" test)
         done
 
-  # pasc coverage on pasc itself, on Ubuntu only: kcov does not run on Windows. On main the
-  # total goes to coverage.json in the badges branch, read by the coverage badge of the README
-  # through the shields.io endpoint, so the README never changes to update it.
-  coverage:
+  # pasc coverage and pasc lint on pasc itself, on Ubuntu only: kcov does not run on Windows.
+  # On main the totals go to coverage.json and lint.json in the badges branch, read by the
+  # badges of the README through the shields.io endpoint, so the README never changes to
+  # update them.
+  metrics:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -149,6 +150,23 @@ jobs:
         echo "percent=$percent" >> "$GITHUB_OUTPUT"
         echo "coverage: $percent%"
 
+    # the build job is the gate of the lint; here a failing message goes to the badge, in red,
+    # instead of stopping the job. Kinds with no message are left out of the badge, like in the
+    # summary of pasc lint.
+    - name: Measuring the lint
+      id: lint
+      run: |
+        apps/pasc/pasc lint --report=lint-report.json || true
+        message=$(jq -r '[("error","warning","note","hint") as $kind
+          | .[$kind + "s"] as $count | select($count > 0)
+          | "\($count) \($kind)" + (if $count > 1 then "s" else "" end)] | join(", ")
+          | if . == "" then "clean" else . end' lint-report.json)
+        color=$(jq -r 'if .failing > 0 or .notLinted > 0 then "red" elif .warnings > 0 then "yellow"
+          else "brightgreen" end' lint-report.json)
+        echo "message=$message" >> "$GITHUB_OUTPUT"
+        echo "color=$color" >> "$GITHUB_OUTPUT"
+        echo "lint: $message ($color)"
+
     - name: Upload the coverage report
       if: always()
       uses: actions/upload-artifact@v4
@@ -157,9 +175,9 @@ jobs:
         path: coverage/
         retention-days: 14
 
-    # the same color bands as the other projects: red below 60%, yellow below 80%, green
-    # below 90%, then brightgreen. A push with GITHUB_TOKEN starts no workflow, so no loop.
-    - name: Publish the coverage badge
+    # coverage: the same color bands as the other projects, red below 60%, yellow below 80%,
+    # green below 90%, then brightgreen. A push with GITHUB_TOKEN starts no workflow, so no loop.
+    - name: Publish the badges
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         percent="${{ steps.coverage.outputs.percent }}"
@@ -174,14 +192,16 @@ jobs:
         fi
         jq -n --arg message "$message" --arg color "$color" \
           '{schemaVersion: 1, label: "coverage", message: $message, color: $color}' > "$badges/coverage.json"
+        jq -n --arg message "${{ steps.lint.outputs.message }}" --arg color "${{ steps.lint.outputs.color }}" \
+          '{schemaVersion: 1, label: "lint", message: $message, color: $color}' > "$badges/lint.json"
 
         cd "$badges"
-        git add coverage.json
+        git add coverage.json lint.json
         if git diff --cached --quiet; then
-          echo "coverage unchanged: $message"
+          echo "badges unchanged: coverage $message, lint ${{ steps.lint.outputs.message }}"
           exit 0
         fi
         git -c user.name="github-actions[bot]" \
           -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-          commit -q -m "coverage $message ($GITHUB_SHA)"
+          commit -q -m "coverage $message, lint ${{ steps.lint.outputs.message }} ($GITHUB_SHA)"
         git push origin badges

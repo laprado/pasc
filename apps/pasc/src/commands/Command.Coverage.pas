@@ -138,7 +138,7 @@ begin
     LProcess.Options := [];
     try
       LProcess.Execute;
-    except
+    except // pasc-lint: ignore PL002
       // nothing to open it with: the path of the report is already in the output
     end;
   finally

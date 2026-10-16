@@ -43,6 +43,7 @@ uses
   Command.Test,
   Utils.IO,
   Utils.Lint,
+  Utils.LintRules,
   Utils.Output,
   Utils.Shell,
   Utils.Workspace;
@@ -200,7 +201,7 @@ begin
   for LMessage in AMessages do
   begin
     LText := Format('%d:%d %s%s%s', [LMessage.Line, LMessage.Column,
-      IfThen(LMessage.Id > 0, '(' + IntToStr(LMessage.Id) + ') ', ''),
+      IfThen(LintMessageId(LMessage) <> '', '(' + LintMessageId(LMessage) + ') ', ''),
       IfThen(AnsiMatchText(KindTitle(LMessage.Kind), [KindTitle(LWorst)]), '', LintKindName(LMessage.Kind) + ': '),
       LMessage.Text]);
     if IsFailing(AConfig, LMessage) then
@@ -211,6 +212,44 @@ begin
   end;
 end;
 
+type
+  /// <summary> The lines of a file, kept while the messages of a member are filtered. </summary>
+  TSourceLines = class
+    Lines: TArray<string>;
+  end;
+
+/// <summary> The lines of a file, read once, for the pasc-lint: ignore comments. </summary>
+function SourceLines(ASources: TStringList; const AFileName: string): TArray<string>;
+var
+  LIndex: Integer;
+  LFile: TStringList;
+  LLines: TSourceLines;
+begin
+  LIndex := ASources.IndexOf(AFileName);
+  if LIndex >= 0 then
+    Exit(TSourceLines(ASources.Objects[LIndex]).Lines);
+  LLines := TSourceLines.Create;
+  LFile := TStringList.Create;
+  try
+    if FileExists(AFileName) then
+      LFile.LoadFromFile(AFileName);
+    LLines.Lines := LFile.ToStringArray;
+  finally
+    LFile.Free;
+  end;
+  ASources.AddObject(AFileName, LLines);
+  Result := LLines.Lines;
+end;
+
+procedure FreeSourceLines(ASources: TStringList);
+var
+  I: Integer;
+begin
+  for I := 0 to ASources.Count - 1 do
+    ASources.Objects[I].Free;
+  ASources.Free;
+end;
+
 function LintMember(ABuilder: ICommandBuilder; const AMemberDir, AProjectFile, ARootDir, AStartDir: string;
   const AConfig: TLintConfig): TMemberLint;
 var
@@ -218,7 +257,7 @@ var
   LMessages, LShown, LMessagesOfFile: TLintMessages;
   LMessage: TLintMessage;
   LProjects, LCompiled, LFiles: TArray<string>;
-  LSorted: TStringList;
+  LSorted, LSources: TStringList;
   LBuilt: Boolean;
 begin
   Result := Default(TMemberLint);
@@ -244,10 +283,18 @@ begin
     LCompiled := LCompiled + ParseCompiledFiles(LOutput, ExtractFileDir(ExpandFileName(LProject)));
   end;
 
+  // the own rules, on each source of the member that the compiler compiled
+  LFiles := FilterMemberFiles(LCompiled, AMemberDir);
+  for LFile in LFiles do
+    if AnsiMatchText(ExtractFileExt(LFile), ['.pas', '.pp', '.lpr', '.dpr']) then
+      LMessages := LMessages + CheckRules(LFile, AConfig);
+
   LShown := [];
-  for LMessage in FilterMemberMessages(LMessages, AMemberDir) do
-    if IsIgnored(AConfig, LMessage) then
-      Inc(Result.Ignored)
+  LSources := TStringList.Create;
+  try
+    for LMessage in FilterMemberMessages(LMessages, AMemberDir) do
+      if IsIgnored(AConfig, LMessage) or IsSuppressed(LMessage, SourceLines(LSources, LMessage.FileName)) then
+        Inc(Result.Ignored)
     else
     begin
       LShown := LShown + [LMessage];
@@ -255,10 +302,12 @@ begin
       if IsFailing(AConfig, LMessage) then
         Inc(Result.Failing);
     end;
+  finally
+    FreeSourceLines(LSources);
+  end;
 
   // every source of the member that was compiled, like the tests of pasc test, and the
   // files with a message, like an error in a module or an include file
-  LFiles := FilterMemberFiles(LCompiled, AMemberDir);
   LSorted := TStringList.Create;
   try
     LSorted.Sorted := True;
@@ -427,10 +476,17 @@ begin
       'each source file of the members, OK or with its messages, and a summary.'#13#10 +
       'The messages for the modules installed by boss are not shown.'#13#10 +
       ''#13#10 +
+      'It also has rules of its own, on the sources parsed with fcl-passrc:'#13#10 +
+      '  PL001 with, PL002 empty except, PL003 destructor without inherited,'#13#10 +
+      '  PL004 long routine, PL005 many parameters, PL006 deep nesting.'#13#10 +
+      'A comment // pasc-lint: ignore PL001 turns a finding off on its line.'#13#10 +
+      ''#13#10 +
       'By default warnings fail, notes and hints are shown. In pasc.json:'#13#10 +
-      '  "lint": { "ignore": [5024], "fail": ["warning", 5091],'#13#10 +
+      '  "lint": { "ignore": [5024, "PL001"], "fail": ["warning", 5091],'#13#10 +
+      '            "rules": { "PL004": { "max": 60 } },'#13#10 +
       '            "members": { "web": { "ignore": [5024] } } }'#13#10 +
-      'ignore and fail take kinds (error, warning, note, hint) and message numbers.'#13#10 +
+      'ignore and fail take kinds (error, warning, note, hint), message numbers'#13#10 +
+      'and rules.'#13#10 +
       'The exit code is 1 if a message fails or a project could not be built.'#13#10 +
       ''#13#10 +
       'Ex: ' + ABuilder.ExeName + ' lint'#13#10 +

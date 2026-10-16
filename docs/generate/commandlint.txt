@@ -56,4 +56,28 @@ By default warnings fail, and notes and hints are shown. In the pasc.json of the
 
 The number of each message is in the output, between parentheses, and the complete list is in the Free Pascal documentation, or in the msg folder of the compiler sources.
 
+@section(1 SecThird Report)
+
+@bold(--report=<file>) writes the totals as JSON, for a CI or a badge, without changing the output or the exit code:
+
+@longCode(
+  pasc lint --report=lint.json
+)
+
+@preformatted(
+{
+  "files" : 21,
+  "ok" : 15,
+  "errors" : 0,
+  "warnings" : 1,
+  "notes" : 0,
+  "hints" : 8,
+  "ignored" : 0,
+  "failing" : 1,
+  "notLinted" : 0
+}
+)
+
+The lint badge of the pasc README is made from this report: its CI writes the kinds with messages, and a color, to the JSON that shields.io reads.
+
 @table( @rowHead( @cell(Next @link(commandnew New Command)) ) )

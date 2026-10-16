@@ -36,10 +36,12 @@ uses
   SysUtils,
   StrUtils,
   Math,
+  fpjson,
   Command.Build,
   Command.Colors,
   Command.Check,
   Command.Test,
+  Utils.IO,
   Utils.Lint,
   Utils.Output,
   Utils.Shell,
@@ -285,22 +287,54 @@ begin
     FormatCounts(Result.Files, Result.FilesOK, Result.Counts, Result.Ignored, Result.Failing)]));
 end;
 
+/// <summary> Adds the counts of a member to the totals. </summary>
+procedure AddCounts(var ATotal: TMemberLint; const AMember: TMemberLint);
+var
+  LKind: TLintKind;
+begin
+  for LKind := Low(TLintKind) to High(TLintKind) do
+    Inc(ATotal.Counts[LKind], AMember.Counts[LKind]);
+  Inc(ATotal.Ignored, AMember.Ignored);
+  Inc(ATotal.Failing, AMember.Failing);
+  Inc(ATotal.Files, AMember.Files);
+  Inc(ATotal.FilesOK, AMember.FilesOK);
+end;
+
+/// <summary> Writes the totals as JSON to the file of --report, for a CI, like a badge.
+/// </summary>
+procedure WriteReport(ABuilder: ICommandBuilder; const ATotal: TMemberLint; const ANotLinted: Integer);
+var
+  LFileName: string = '';
+  LJson: TJSONObject;
+  LKind: TLintKind;
+begin
+  if not ABuilder.CheckOption('report', LFileName) or (Trim(LFileName) = '') then
+    Exit;
+  LJson := TJSONObject.Create;
+  try
+    LJson.Add('files', ATotal.Files);
+    LJson.Add('ok', ATotal.FilesOK);
+    for LKind := Low(TLintKind) to High(TLintKind) do
+      LJson.Add(LintKindName(LKind) + 's', ATotal.Counts[LKind]);
+    LJson.Add('ignored', ATotal.Ignored);
+    LJson.Add('failing', ATotal.Failing);
+    LJson.Add('notLinted', ANotLinted);
+    ForceDirectories(ExtractFileDir(ExpandFileName(LFileName)));
+    SaveFileContent(LFileName, LJson.FormatJSON + LineEnding);
+  finally
+    LJson.Free;
+  end;
+end;
+
 procedure LintWorkspace(ABuilder: ICommandBuilder; const AWorkspaceDir: string);
 var
   LMember: TWorkspaceMember;
-  LResult: TMemberLint;
-  LCounts: array[TLintKind] of Integer;
-  LKind: TLintKind;
+  LResult, LTotal: TMemberLint;
   LCurrentDir, LLine: string;
   LLinted: Integer = 0;
-  LFiles: Integer = 0;
-  LFilesOK: Integer = 0;
-  LIgnored: Integer = 0;
-  LFailing: Integer = 0;
   LNotLinted: TArray<string> = [];
 begin
-  for LKind := Low(TLintKind) to High(TLintKind) do
-    LCounts[LKind] := 0;
+  LTotal := Default(TMemberLint);
   LCurrentDir := GetCurrentDir;
   PrepareWorkspace(ABuilder, AWorkspaceDir);
   for LMember in SortMembersByDependency(GetWorkspaceMembers(AWorkspaceDir)) do
@@ -313,21 +347,17 @@ begin
       LNotLinted := LNotLinted + [LMember.Name + IfThen(LResult.Error <> '', ': ' + LResult.Error, '')]
     else
       Inc(LLinted);
-    for LKind := Low(TLintKind) to High(TLintKind) do
-      Inc(LCounts[LKind], LResult.Counts[LKind]);
-    Inc(LIgnored, LResult.Ignored);
-    Inc(LFailing, LResult.Failing);
-    Inc(LFiles, LResult.Files);
-    Inc(LFilesOK, LResult.FilesOK);
+    AddCounts(LTotal, LResult);
   end;
 
   ABuilder.Output('');
   OutputInfo(ABuilder, 'Workspace', Format('%s linted: %s', [Plural(LLinted, 'member'),
-    FormatCounts(LFiles, LFilesOK, LCounts, LIgnored, LFailing)]));
+    FormatCounts(LTotal.Files, LTotal.FilesOK, LTotal.Counts, LTotal.Ignored, LTotal.Failing)]));
   for LLine in LNotLinted do
     OutputError(ABuilder, 'Not linted', LLine);
+  WriteReport(ABuilder, LTotal, Length(LNotLinted));
 
-  if (LFailing > 0) or (Length(LNotLinted) > 0) then
+  if (LTotal.Failing > 0) or (Length(LNotLinted) > 0) then
     ExitCode := 1;
 end;
 
@@ -358,6 +388,7 @@ begin
     LoadLintConfig(LWorkspaceDir, ChangeFileExt(ExtractFileName(LProjectFile), ''), LRelative));
   if not LResult.Ran then
     OutputError(ABuilder, 'Not linted', LResult.Error);
+  WriteReport(ABuilder, LResult, IfThen(LResult.Ran, 0, 1));
   if (not LResult.Ran) or (LResult.Failing > 0) then
     ExitCode := 1;
 end;
@@ -402,9 +433,16 @@ begin
       'ignore and fail take kinds (error, warning, note, hint) and message numbers.'#13#10 +
       'The exit code is 1 if a message fails or a project could not be built.'#13#10 +
       ''#13#10 +
-      'Ex: ' + ABuilder.ExeName + ' lint',
+      'Ex: ' + ABuilder.ExeName + ' lint'#13#10 +
+      'Ex: ' + ABuilder.ExeName + ' lint --report=lint.json',
       @LintCommand,
-      [ccNoParameters]);
+      [ccNoParameters])
+      .AddOption(
+        'r',
+        'report',
+        'writes the totals as JSON to the given file, for a CI or a badge.',
+        [],
+        ocRequiresValue);
 end;
 
 end.

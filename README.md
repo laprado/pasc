@@ -1,6 +1,7 @@
 ## pasc
 [![build](https://github.com/laprado/pasc/actions/workflows/integration.yml/badge.svg?branch=main&event=push)](https://github.com/laprado/pasc/actions/workflows/integration.yml?query=branch%3Amain+event%3Apush)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Flaprado%2Fpasc%2Fbadges%2Fcoverage.json)](https://github.com/laprado/pasc/actions/workflows/integration.yml?query=branch%3Amain+event%3Apush)
+[![lint](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Flaprado%2Fpasc%2Fbadges%2Flint.json)](https://laprado.github.io/pasc/commandlint.html)
 [![docs](https://github.com/laprado/pasc/actions/workflows/docs.yml/badge.svg?branch=main&event=push)](https://laprado.github.io/pasc/)
 [![release](https://img.shields.io/github/v/release/laprado/pasc)](https://github.com/laprado/pasc/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/laprado/pasc/total)](https://github.com/laprado/pasc/releases)

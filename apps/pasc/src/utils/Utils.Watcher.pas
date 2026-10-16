@@ -156,6 +156,7 @@ end;
 destructor TPathWatcher.Destroy;
 begin
   FCurrentFile.Free;
+  inherited Destroy;
 end;
 
 function TPathWatcher.Path(const APath: string): IPathWatcher;

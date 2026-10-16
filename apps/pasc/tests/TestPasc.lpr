@@ -17,6 +17,7 @@ uses
   TestUtilsCheck,
   TestUtilsCoverage,
   TestUtilsLint,
+  TestUtilsLintRules,
   TestUtilsOutput,
   TestUtilsResources,
   TestUtilsShell,

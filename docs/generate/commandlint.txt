@@ -34,7 +34,38 @@ Building with warnings as errors (@html(<code>-Sew</code>)) does not work in a @
 
 The exit code is 1 when a message fails or a project could not be built. Then the summary says why, like the first error of the compiler.
 
-@section(1 SecSecond Configuration)
+@section(1 SecSecond Rules)
+
+Besides the messages of the compiler, pasc lint has rules of its own, for what the compiler does not report. The sources of each member are parsed with fcl-passrc, the Pascal parser that comes with Free Pascal, also used by fpdoc and pas2js, so they need nothing else. Each rule has an id, and its findings go through the same configuration and output as the messages of the compiler, with the id in place of the number. The parser gives the line of each element but not its column, so a finding is at column 1.
+
+@table(
+  @rowHead( @cell(id) @cell(kind) @cell(what it reports) )
+  @row( @cell(PL001) @cell(note) @cell(A with statement, which hides where each identifier comes from.) )
+  @row( @cell(PL002) @cell(warning) @cell(An empty except block, or an on handler without statements, which silently ignores the exception.) )
+  @row( @cell(PL003) @cell(warning) @cell(A destructor that does not call inherited, so the parent does not free what it holds.) )
+  @row( @cell(PL004) @cell(hint) @cell(A routine longer than 80 lines, its header included.) )
+  @row( @cell(PL005) @cell(hint) @cell(A routine with more than 6 parameters.) )
+  @row( @cell(PL006) @cell(hint) @cell(Statements nested more than 4 levels deep, in if, case, loops, try and with. Once per routine.) )
+  @row( @cell(PL000) @cell(note) @cell(A source that the parser could not read, with the reason. The compiler still checks it.) )
+)
+
+The limits of PL004, PL005 and PL006 are in pasc.json:
+
+@longCode(
+  "lint": {
+    "rules": { "PL004": { "max": 60 }, "PL006": { "max": 3 } }
+  }
+)
+
+A finding can be turned off in the code with a comment on its line, or on the line above, with the ids of the rules or the numbers of the messages of the compiler:
+
+@longCode(
+  except // pasc-lint: ignore PL002
+    // nothing to do: the file may not exist yet
+  end;
+)
+
+@section(1 SecThird Configuration)
 
 By default warnings fail, and notes and hints are shown. In the pasc.json of the workspace:
 
@@ -49,14 +80,15 @@ By default warnings fail, and notes and hints are shown. In the pasc.json of the
 )
 
 @unorderedList(
-  @item(@bold(ignore) leaves messages out, by kind (error, warning, note, hint) or by number. Errors can not be ignored.)
-  @item(@bold(fail) says what makes the command exit with 1, by kind or by number, so a single hint can fail too. It replaces the default.)
-  @item(@bold(members) has the configuration of a member, by name or by folder, like apps/web. Its ignore is added to the one of the workspace, and its fail, when present, replaces it. A web app with Horse handlers, for example, has parameters it does not use, required by the signature of the handler, so it can ignore 5024 alone.)
+  @item(@bold(ignore) leaves messages out, by kind (error, warning, note, hint), by number, or by rule, like PL001. Errors can not be ignored.)
+  @item(@bold(fail) says what makes the command exit with 1, by kind, by number or by rule, so a single hint can fail too. It replaces the default.)
+  @item(@bold(rules) has the limits of the rules, see above.)
+  @item(@bold(members) has the configuration of a member, by name or by folder, like apps/web. Its ignore is added to the one of the workspace, its fail, when present, replaces it, and so do its limits. A web app with Horse handlers, for example, has parameters it does not use, required by the signature of the handler, so it can ignore 5024 alone.)
 )
 
 The number of each message is in the output, between parentheses, and the complete list is in the Free Pascal documentation, or in the msg folder of the compiler sources.
 
-@section(1 SecThird Report)
+@section(1 SecFourth Report)
 
 @bold(--report=<file>) writes the totals as JSON, for a CI or a badge, without changing the output or the exit code:
 

@@ -28,6 +28,7 @@ type
     procedure TestLoadLintConfigMember;
     procedure TestLoadLintConfigInvalid;
     procedure TestErrorsAlwaysFail;
+    procedure TestLoadLintConfigRules;
   end;
 
 implementation
@@ -228,6 +229,41 @@ begin
   AssertFalse('an error can not be ignored', IsIgnored(LConfig, Message('a.pas', lkError, 10022)));
   AssertTrue('an error always fails', IsFailing(LConfig, Message('a.pas', lkError, 10022)));
   AssertFalse('nothing else fails', IsFailing(LConfig, Message('a.pas', lkWarning, 5093)));
+end;
+
+procedure TTestUtilsLint.TestLoadLintConfigRules;
+var
+  LConfig: TLintConfig;
+  LRule: TLintMessage;
+begin
+  AssertEquals('default limit of PL004', DEFAULT_MAX_ROUTINE_LINES, DefaultLintConfig.MaxRoutineLines);
+
+  SaveFileContent(ConcatPaths([FDir, 'pasc.json']),
+    '{ "lint": { "ignore": ["PL001"], "fail": ["warning", "pl004"], "rules": { "PL004": { "max": 60 } },' +
+    '  "members": { "web": { "rules": { "PL006": { "max": 6 } } } } } }');
+
+  LConfig := LoadLintConfig(FDir, 'web', 'apps/web');
+
+  LRule := Message('a.pas', lkNote, 0);
+  LRule.Rule := 'PL001';
+  AssertTrue('a rule is ignored by its id', IsIgnored(LConfig, LRule));
+  LRule := Message('a.pas', lkHint, 0);
+  LRule.Rule := 'PL004';
+  AssertTrue('a rule fails by its id, in any case', IsFailing(LConfig, LRule));
+  AssertEquals('PL004', LintMessageId(LRule));
+  AssertEquals('5093', LintMessageId(Message('a.pas', lkWarning, 5093)));
+  AssertEquals('the limit of the workspace', 60, LConfig.MaxRoutineLines);
+  AssertEquals('the limit of the member', 6, LConfig.MaxNesting);
+  AssertEquals('the default limit', DEFAULT_MAX_PARAMETERS, LConfig.MaxParameters);
+
+  SaveFileContent(ConcatPaths([FDir, 'pasc.json']), '{ "lint": { "rules": { "PL001": { "max": 1 } } } }');
+  try
+    LoadLintConfig(FDir, 'web', 'apps/web');
+    Fail('PL001 has no limit');
+  except
+    on E: Exception do
+      AssertTrue(E.Message, ContainsText(E.Message, 'PL001, which has no limit'));
+  end;
 end;
 
 initialization

@@ -36,6 +36,8 @@ SOFTWARE.
 
 https://www.freepascal.org. Licensed under the GNU Library General Public License with a static linking exception (`COPYING.FPC` in the Free Pascal sources). The exception allows the executable to be distributed under terms chosen by its authors. pasc uses these units unmodified.
 
+They include fcl-passrc (`PasTree`, `PScanner`, `PParser`), the Pascal parser of Free Pascal, also used by fpdoc and pas2js, under the same license. pasc lint uses it to parse the sources for its own rules.
+
 ### Lazarus LCL and LazUtils
 
 https://www.lazarus-ide.org. pasc uses `LResources` (LCL) for its embedded resources and `FileUtil` (LazUtils). Licensed under the modified LGPL with the same static linking exception (`COPYING.modifiedLGPL.txt` in the Lazarus sources). pasc uses these units unmodified.

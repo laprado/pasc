@@ -12,6 +12,15 @@ unit Utils.Lint;
 
 interface
 
+const
+  /// <summary> Default limit of rule PL004, in lines of a routine, its header included.
+  /// </summary>
+  DEFAULT_MAX_ROUTINE_LINES = 80;
+  /// <summary> Default limit of rule PL005, in parameters of a routine. </summary>
+  DEFAULT_MAX_PARAMETERS = 6;
+  /// <summary> Default limit of rule PL006, in nested if, case, loops, try and with. </summary>
+  DEFAULT_MAX_NESTING = 4;
+
 type
 
   /// <summary> Kind of a message of the compiler. </summary>
@@ -28,6 +37,9 @@ type
     Kind: TLintKind;
     /// <summary> Message number, like 5093, or 0 when the compiler shows none. </summary>
     Id: Integer;
+    /// <summary> Id of an own rule of pasc lint, like PL001, or empty for a message of the
+    /// compiler. </summary>
+    Rule: string;
     Text: string;
   end;
 
@@ -38,9 +50,21 @@ type
   TLintConfig = record
     IgnoreKinds: TLintKinds;
     IgnoreIds: TArray<Integer>;
+    IgnoreRules: TArray<string>;
     FailKinds: TLintKinds;
     FailIds: TArray<Integer>;
+    FailRules: TArray<string>;
+    /// <summary> Limits of the rules PL004, PL005 and PL006. </summary>
+    MaxRoutineLines: Integer;
+    MaxParameters: Integer;
+    MaxNesting: Integer;
   end;
+
+  /// <summary> Returns the id of a message as the output shows it: the number of a message of
+  /// the compiler, like 5093, or the id of a rule, like PL001; empty when there is none.
+  /// </summary>
+  /// <param name="AMessage"> Message of the compiler or of a rule. </param>
+  function LintMessageId(const AMessage: TLintMessage): string;
 
   /// <summary> Returns the name of a kind, like warning. </summary>
   /// <param name="AKind"> Message kind. </param>
@@ -81,13 +105,16 @@ type
 
   /// <summary> Reads the lint configuration of a member from the pasc.json of the workspace:
   ///
-  /// "lint": { "ignore": [5024], "fail": ["warning", 5091],
+  /// "lint": { "ignore": [5024, "PL001"], "fail": ["warning", 5091],
+  ///           "rules": { "PL004": { "max": 60 } },
   ///           "members": { "web": { "ignore": [5024] } } }
   ///
-  /// ignore and fail take kinds (error, warning, note, hint) and message numbers. A member,
-  /// by name or by folder relative to the root, adds its ignore to the one of the workspace and,
-  /// when it has fail, replaces it. Without pasc.json or lint, the default is returned. Raises
-  /// an exception for a value that is not a kind or a number. </summary>
+  /// ignore and fail take kinds (error, warning, note, hint), message numbers and ids of rules.
+  /// rules has the limits of the rules that have one. A member, by name or by folder relative
+  /// to the root, adds its ignore to the one of the workspace and, when it has fail, replaces
+  /// it; its rules replace the limits it has. Without pasc.json or lint, the default is
+  /// returned. Raises an exception for a value that is not a kind, a number or a rule.
+  /// </summary>
   /// <param name="AWorkspaceDir"> Workspace root folder, or empty outside a workspace. </param>
   /// <param name="AMemberName"> Member name. </param>
   /// <param name="AMemberPath"> Member folder relative to the root, like apps/web. </param>
@@ -129,6 +156,25 @@ const
 function LintKindName(const AKind: TLintKind): string;
 begin
   Result := KIND_NAMES[AKind];
+end;
+
+function LintMessageId(const AMessage: TLintMessage): string;
+begin
+  Result := AMessage.Rule;
+  if (Result = '') and (AMessage.Id > 0) then
+    Result := IntToStr(AMessage.Id);
+end;
+
+function IsRuleId(const AValue: string): Boolean;
+var
+  LChar: Char;
+begin
+  // PL and three digits, like PL001
+  Result := (Length(AValue) = 5) and SameText(Copy(AValue, 1, 2), 'PL');
+  if Result then
+    for LChar in Copy(AValue, 3, 3) do
+      if not (LChar in ['0'..'9']) then
+        Exit(False);
 end;
 
 function ResolveFile(const AFileName, ABaseDir: string): string;
@@ -263,7 +309,7 @@ end;
 function SameMessage(const A, B: TLintMessage): Boolean;
 begin
   Result := SameFileName(A.FileName, B.FileName) and (A.Line = B.Line) and (A.Column = B.Column) and
-    (A.Kind = B.Kind) and (A.Id = B.Id) and (A.Text = B.Text);
+    (A.Kind = B.Kind) and (A.Id = B.Id) and (A.Rule = B.Rule) and (A.Text = B.Text);
 end;
 
 function FilterMemberMessages(const AMessages: TLintMessages; const AMemberDir: string): TLintMessages;
@@ -292,9 +338,13 @@ function DefaultLintConfig: TLintConfig;
 begin
   Result := Default(TLintConfig);
   Result.FailKinds := [lkWarning];
+  Result.MaxRoutineLines := DEFAULT_MAX_ROUTINE_LINES;
+  Result.MaxParameters := DEFAULT_MAX_PARAMETERS;
+  Result.MaxNesting := DEFAULT_MAX_NESTING;
 end;
 
-procedure ReadList(AData: TJSONData; const AName: string; out AKinds: TLintKinds; out AIds: TArray<Integer>);
+procedure ReadList(AData: TJSONData; const AName: string; out AKinds: TLintKinds; out AIds: TArray<Integer>;
+  out ARules: TArray<string>);
 var
   LArray: TJSONArray;
   LKind: TLintKind;
@@ -303,8 +353,9 @@ var
 begin
   AKinds := [];
   AIds := [];
+  ARules := [];
   if not (AData is TJSONArray) then
-    raise Exception.Create('lint ' + AName + ' in pasc.json should be a list of kinds and message numbers');
+    raise Exception.Create('lint ' + AName + ' in pasc.json should be a list of kinds, message numbers and rules');
   LArray := TJSONArray(AData);
   for I := 0 to LArray.Count - 1 do
     case LArray.Items[I].JSONType of
@@ -312,7 +363,9 @@ begin
         AIds := AIds + [LArray.Items[I].AsInteger];
       jtString:
         begin
-          LFound := False;
+          LFound := IsRuleId(LArray.Items[I].AsString);
+          if LFound then
+            ARules := ARules + [UpperCase(LArray.Items[I].AsString)];
           for LKind := Low(TLintKind) to High(TLintKind) do
             if SameText(LArray.Items[I].AsString, KIND_NAMES[LKind]) then
             begin
@@ -320,31 +373,60 @@ begin
               LFound := True;
             end;
           if not LFound then
-            raise Exception.CreateFmt('lint %s in pasc.json has "%s", which is not error, warning, note, hint ' +
-              'or a message number', [AName, LArray.Items[I].AsString]);
+            raise Exception.CreateFmt('lint %s in pasc.json has "%s", which is not error, warning, note, hint, ' +
+              'a message number or a rule like PL001', [AName, LArray.Items[I].AsString]);
         end;
     else
-      raise Exception.CreateFmt('lint %s in pasc.json has %s, which is not a kind or a message number',
+      raise Exception.CreateFmt('lint %s in pasc.json has %s, which is not a kind, a message number or a rule',
         [AName, LArray.Items[I].AsJSON]);
     end;
+end;
+
+procedure ReadLimit(ARules: TJSONObject; const ARule: string; var ALimit: Integer);
+var
+  LRule: TJSONData;
+begin
+  LRule := ARules.Find(ARule);
+  if not Assigned(LRule) then
+    Exit;
+  if not (LRule is TJSONObject) or not (TJSONObject(LRule).Find('max') is TJSONNumber) or
+     (TJSONObject(LRule).Find('max').AsInteger < 1) then
+    raise Exception.CreateFmt('lint rules %s in pasc.json should be like { "max": %d }', [ARule, ALimit]);
+  ALimit := TJSONObject(LRule).Find('max').AsInteger;
 end;
 
 procedure ApplySection(ASection: TJSONObject; var AConfig: TLintConfig);
 var
   LKinds: TLintKinds;
   LIds: TArray<Integer>;
+  LRules: TArray<string>;
+  LLimits: TJSONObject;
+  I: Integer;
 begin
   if Assigned(ASection.Find('ignore')) then
   begin
-    ReadList(ASection.Find('ignore'), 'ignore', LKinds, LIds);
+    ReadList(ASection.Find('ignore'), 'ignore', LKinds, LIds, LRules);
     AConfig.IgnoreKinds := AConfig.IgnoreKinds + LKinds;
     AConfig.IgnoreIds := AConfig.IgnoreIds + LIds;
+    AConfig.IgnoreRules := AConfig.IgnoreRules + LRules;
   end;
   if Assigned(ASection.Find('fail')) then
   begin
-    ReadList(ASection.Find('fail'), 'fail', LKinds, LIds);
+    ReadList(ASection.Find('fail'), 'fail', LKinds, LIds, LRules);
     AConfig.FailKinds := LKinds;
     AConfig.FailIds := LIds;
+    AConfig.FailRules := LRules;
+  end;
+  if ASection.Find('rules') is TJSONObject then
+  begin
+    LLimits := TJSONObject(ASection.Find('rules'));
+    for I := 0 to LLimits.Count - 1 do
+      if not AnsiMatchText(LLimits.Names[I], ['PL004', 'PL005', 'PL006']) then
+        raise Exception.CreateFmt('lint rules in pasc.json has %s, which has no limit; the rules with one are ' +
+          'PL004, PL005 and PL006', [LLimits.Names[I]]);
+    ReadLimit(LLimits, 'PL004', AConfig.MaxRoutineLines);
+    ReadLimit(LLimits, 'PL005', AConfig.MaxParameters);
+    ReadLimit(LLimits, 'PL006', AConfig.MaxNesting);
   end;
 end;
 
@@ -394,17 +476,29 @@ begin
       Exit(True);
 end;
 
+function HasRule(const ARules: TArray<string>; const ARule: string): Boolean;
+var
+  LRule: string;
+begin
+  Result := False;
+  if ARule <> '' then
+    for LRule in ARules do
+      if SameText(LRule, ARule) then
+        Exit(True);
+end;
+
 function IsIgnored(const AConfig: TLintConfig; const AMessage: TLintMessage): Boolean;
 begin
   // an error stops the build, it can not be ignored
   Result := (AMessage.Kind <> lkError) and
-    ((AMessage.Kind in AConfig.IgnoreKinds) or ((AMessage.Id > 0) and HasId(AConfig.IgnoreIds, AMessage.Id)));
+    ((AMessage.Kind in AConfig.IgnoreKinds) or ((AMessage.Id > 0) and HasId(AConfig.IgnoreIds, AMessage.Id)) or
+     HasRule(AConfig.IgnoreRules, AMessage.Rule));
 end;
 
 function IsFailing(const AConfig: TLintConfig; const AMessage: TLintMessage): Boolean;
 begin
   Result := (AMessage.Kind = lkError) or (AMessage.Kind in AConfig.FailKinds) or
-    ((AMessage.Id > 0) and HasId(AConfig.FailIds, AMessage.Id));
+    ((AMessage.Id > 0) and HasId(AConfig.FailIds, AMessage.Id)) or HasRule(AConfig.FailRules, AMessage.Rule);
 end;
 
 end.

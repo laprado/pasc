@@ -72,7 +72,8 @@ type
 
   /// <summary> Parses the output of lazbuild and returns the messages of the compiler with a
   /// file and a position, like file(line,col) Warning: (5093) text. A relative file name is
-  /// resolved from ABaseDir. Messages of the linker, the assembler and the resources, numbered
+  /// resolved from the last Working Directory that lazbuild wrote, the one of the project or
+  /// of a package it compiles, or from ABaseDir before the first one. Messages of the linker, the assembler and the resources, numbered
   /// from 9000 to 9999, are not about the code and are left out. </summary>
   /// <param name="AOutput"> Output of lazbuild. </param>
   /// <param name="ABaseDir"> Folder of the project, for relative file names. </param>
@@ -88,7 +89,7 @@ type
 
   /// <summary> Parses the output of lazbuild and returns the source files the compiler
   /// compiled, from its lines (3104) Compiling file, without the resources. A relative file
-  /// name is resolved from ABaseDir. </summary>
+  /// name is resolved like in ParseCompilerMessages. </summary>
   /// <param name="AOutput"> Output of lazbuild. </param>
   /// <param name="ABaseDir"> Folder of the project, for relative file names. </param>
   function ParseCompiledFiles(const AOutput, ABaseDir: string): TArray<string>;
@@ -228,20 +229,42 @@ begin
   end;
 end;
 
+/// <summary> Updates the folder the compiler runs in, from the line lazbuild writes before each
+/// compilation, of the project or of a package: Info: (lazarus) Working Directory="folder".
+/// The relative file names of the compiler are relative to it. </summary>
+procedure UpdateWorkingDir(const ALine: string; var ABaseDir: string);
+const
+  WORKING_DIR = 'Working Directory="';
+var
+  LStart, LEnd: Integer;
+begin
+  LStart := Pos(WORKING_DIR, ALine);
+  if LStart = 0 then
+    Exit;
+  Inc(LStart, Length(WORKING_DIR));
+  LEnd := PosEx('"', ALine, LStart);
+  if LEnd > LStart then
+    ABaseDir := ExcludeTrailingPathDelimiter(SetDirSeparators(Copy(ALine, LStart, LEnd - LStart)));
+end;
+
 function ParseCompilerMessages(const AOutput, ABaseDir: string): TLintMessages;
 var
   LLines: TStringList;
-  LLine: string;
+  LLine, LBaseDir: string;
   LMessage: TLintMessage;
 begin
   Result := [];
+  LBaseDir := ABaseDir;
   LLines := TStringList.Create;
   try
     LLines.Text := AOutput;
     for LLine in LLines do
-      if ParseLine(LLine, ABaseDir, LMessage) and
+    begin
+      UpdateWorkingDir(LLine, LBaseDir);
+      if ParseLine(LLine, LBaseDir, LMessage) and
          not ((LMessage.Id >= FIRST_TOOLCHAIN_ID) and (LMessage.Id <= LAST_TOOLCHAIN_ID)) then
         Result := Result + [LMessage];
+    end;
   finally
     LLines.Free;
   end;
@@ -252,21 +275,23 @@ const
   COMPILING = 'Compiling ';
 var
   LLines: TStringList;
-  LLine, LText: string;
+  LLine, LText, LBaseDir: string;
 begin
   Result := [];
+  LBaseDir := ABaseDir;
   LLines := TStringList.Create;
   try
     LLines.Text := AOutput;
     for LLine in LLines do
     begin
+      UpdateWorkingDir(LLine, LBaseDir);
       LText := Trim(LLine);
       // (3104) Compiling file, with the message numbers of -vq
       if StartsStr('(3104) ', LText) then
         Delete(LText, 1, Length('(3104) '));
       if not StartsStr(COMPILING, LText) or StartsStr(COMPILING + 'resource', LText) then
         Continue;
-      Result := Result + [ResolveFile(Copy(LText, Length(COMPILING) + 1, MaxInt), ABaseDir)];
+      Result := Result + [ResolveFile(Copy(LText, Length(COMPILING) + 1, MaxInt), LBaseDir)];
     end;
   finally
     LLines.Free;

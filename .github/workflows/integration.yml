@@ -69,8 +69,12 @@ jobs:
     - name: Run the unit test application
       run: apps/pasc/tests/TestPasc "--all" "--format=plain"
 
-    # an app created from each template must pass pasc check, build and pass its tests,
-    # with the dependencies installed by pasc new
+    # the warnings of the compiler in the sources of pasc, without the modules
+    - name: Lint
+      run: apps/pasc/pasc lint
+
+    # an app created from each template must pass pasc check and pasc lint, build and pass
+    # its tests, with the dependencies installed by pasc new
     - name: Testing the app templates
       shell: bash
       run: |
@@ -78,7 +82,7 @@ jobs:
         cd "$RUNNER_TEMP"
         for template in cli web; do
           "$pasc" new "${template}app" --template=$template
-          (cd "${template}app" && "$pasc" check && "$pasc" build && "$pasc" test)
+          (cd "${template}app" && "$pasc" check && "$pasc" lint && "$pasc" build && "$pasc" test)
         done
 
   # pasc coverage on pasc itself, on Ubuntu only: kcov does not run on Windows. On main the

@@ -20,4 +20,4 @@ Example:
   pasc licenses
 )
 
-@table( @rowHead( @cell(Next @link(commandnew New Command)) ) )
+@table( @rowHead( @cell(Next @link(commandlint Lint Command)) ) )

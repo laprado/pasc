@@ -1,0 +1,52 @@
+@title(Lint)
+@shorttitle(Lint)
+
+@section(1 SecFirst Description)
+
+Shows the warnings, notes and hints of the compiler for your sources, and fails on the ones you choose, so it can be used as a gate in a CI. Free Pascal has no standard linter, but with its messages on the compiler already reports uninitialized variables and results, unused units, parameters and variables, unreachable code, lossy conversions and more.
+
+Example:
+@longCode(
+  pasc lint
+)
+
+Building with warnings as errors (@html(<code>-Sew</code>)) does not work in a @link(workspace workspace): boss installs the dependencies as sources in modules, and they are compiled with the project, so the build stops in code that is not yours. pasc lint filters the messages by file after the compiler runs instead:
+
+@unorderedList(
+  @item(It builds the project in the current folder and its test project, or at the root of a workspace every member and its test project, with @html(<code>lazbuild -B</code>), so every unit is compiled again and repeats its messages. The output goes to lib/lint, so the normal build is not touched.)
+  @item(It keeps the messages for the sources of each member, its folders without lib, backup and modules, and leaves out the ones for the modules and for the units of FPC and Lazarus. Errors are always shown, wherever they are, because they stop the build. The messages of the linker, the assembler and the resources (9000 to 9999) are not about the code and are left out.)
+  @item(It shows each message as a file:line:col link, with its number, and a summary per member and for the workspace.)
+)
+
+@preformatted(
+     Linting apps/cmd
+     Warning apps/cmd/src/commands/Command.Count.pas:38:19 (5093) function result variable of a managed type does not seem to be initialized
+        Hint apps/cmd/tests/TestOutput.pas:25:58 (5024) Parameter "AColor" not used
+        Lint apps/cmd: 0 errors, 1 warning, 0 notes, 1 hint, 1 failing
+)
+
+The exit code is 1 when a message fails or a project could not be built. Then the summary says why, like the first error of the compiler.
+
+@section(1 SecSecond Configuration)
+
+By default warnings fail, and notes and hints are shown. In the pasc.json of the workspace:
+
+@longCode(
+  "lint": {
+    "ignore": [5024],
+    "fail": ["warning", 5091],
+    "members": {
+      "web": { "ignore": [5024, 5023] }
+    }
+  }
+)
+
+@unorderedList(
+  @item(@bold(ignore) leaves messages out, by kind (error, warning, note, hint) or by number. Errors can not be ignored.)
+  @item(@bold(fail) says what makes the command exit with 1, by kind or by number, so a single hint can fail too. It replaces the default.)
+  @item(@bold(members) has the configuration of a member, by name or by folder, like apps/web. Its ignore is added to the one of the workspace, and its fail, when present, replaces it. A web app with Horse handlers, for example, has parameters it does not use, required by the signature of the handler, so it can ignore 5024 alone.)
+)
+
+The number of each message is in the output, between parentheses, and the complete list is in the Free Pascal documentation, or in the msg folder of the compiler sources.
+
+@table( @rowHead( @cell(Next @link(commandnew New Command)) ) )

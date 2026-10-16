@@ -8,8 +8,6 @@ uses
   SysUtils, 
   StrUtils,
   Classes,
-  rtti, 
-  typinfo,
   Command.Interfaces,
   Utils.Interfaces;
 
@@ -25,7 +23,6 @@ var
   MockCommandCapture, MockInputLnResult, MockOutputCaptured, MockShellCapture, 
   MockCaptureWatchExecute: string;
   MockStart, MockTimeout: QWord;
-  MockShellExitCodeCapture: Integer;
 
 implementation
 
@@ -71,7 +68,7 @@ function MockShell(const AProgram: string; AParams: TArray<string>; out AExitCod
 var
   LParam: string;
 begin
-  MockShellExitCodeCapture := AExitCode;
+  AExitCode := 0;
   MockShellCapture := IfThen(MockShellCapture <> '', MockShellCapture + #13#10, '') + AProgram;
   for LParam in AParams do
     MockShellCapture := MockShellCapture + ' ' + LParam;
